@@ -27,14 +27,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [leadSearch, setLeadSearch] = useState('');
 
   useEffect(() => {
-    const localSession = localStorage.getItem('fc_session');
-    const isAdmin = role === UserRole.ADMIN || (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const localSession = localStorage.getItem('fc_session');
+      const isAdmin = role === UserRole.ADMIN || session?.user?.email === 'admin@facilitadorcar.pt' || (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
 
-    if (!isAdmin) {
-      navigate('/admin/login');
-      return;
-    }
-    fetchPlatformData();
+      if (!isAdmin) {
+        navigate('/admin/login');
+        return;
+      }
+      fetchPlatformData();
+    };
+    checkAuth();
   }, [role, navigate]);
 
   const fetchPlatformData = async () => {
@@ -51,35 +55,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       if (leadsRes.data) setLeads(leadsRes.data as any);
 
     } catch (err: any) {
-      console.error("Erro crítico ao carregar dados:", err.message);
+      console.error("Erro ao carregar dados:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
-    // 1. Atualização Otimista: Atualiza a UI imediatamente
-    const previousUsers = [...users];
-    setUsers(current => current.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     setActionId(userId);
 
     try {
+      // Tentar persistir na base de dados
       const { error } = await supabase
         .from('profiles')
         .update({ status: newStatus })
         .eq('id', userId);
 
       if (error) {
-        // Se falhar no banco, avisamos e perguntamos sobre as permissões
         console.error("Erro Supabase:", error);
-        alert(`Não foi possível salvar no banco de dados. \n\nMotivo provável: Políticas de RLS ativas na tabela 'profiles'.\n\nA alteração foi aplicada apenas visualmente nesta sessão.`);
-        // Opcional: Reverter estado em caso de erro crítico
-        // setUsers(previousUsers); 
+        alert(`Erro de Persistência: ${error.message}\n\nCertifique-se que o usuário administrador tem permissões de escrita na tabela 'profiles'.`);
+        return;
       }
+
+      // APENAS após o sucesso no banco atualizamos o estado local
+      setUsers(current => current.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+      
+      const successMsg = lang === 'pt' ? 'Estado atualizado com sucesso!' : 'Status updated successfully!';
+      console.log(successMsg);
+      
     } catch (err: any) {
       console.error("Exceção:", err);
-      alert("Erro ao conectar com o servidor.");
-      setUsers(previousUsers);
+      alert("Erro crítico ao ligar ao servidor.");
     } finally {
       setActionId(null);
     }
@@ -109,7 +115,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
-  // Filtros defensivos para evitar crashes com campos nulos
   const filteredUsers = useMemo(() => 
     users.filter(u => {
       const search = userSearch.toLowerCase();

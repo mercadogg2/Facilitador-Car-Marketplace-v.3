@@ -37,12 +37,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkUser = async () => {
+      // 1. Tentar recuperar sessão mock
       const localSession = localStorage.getItem('fc_session');
       if (localSession) {
         try {
           const sessionData = JSON.parse(localSession);
-          setIsLoggedIn(true);
           setRole(sessionData.role);
+          setIsLoggedIn(true);
           setIsLoading(false);
           return;
         } catch (e) {
@@ -50,12 +51,13 @@ const App: React.FC = () => {
         }
       }
 
+      // 2. Tentar recuperar sessão real Supabase
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          setIsLoggedIn(true);
           const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
           setRole(userRole);
+          setIsLoggedIn(true);
         }
       } catch (e) {
         console.warn("Supabase session check failed.");
@@ -71,14 +73,12 @@ const App: React.FC = () => {
       }
 
       if (session?.user) {
-        setIsLoggedIn(true);
         const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
         setRole(userRole);
-      } else {
-        if (!localStorage.getItem('fc_session')) {
-          setIsLoggedIn(false);
-          setRole(UserRole.VISITOR);
-        }
+        setIsLoggedIn(true);
+      } else if (!localStorage.getItem('fc_session')) {
+        setRole(UserRole.VISITOR);
+        setIsLoggedIn(false);
       }
     });
 
@@ -97,20 +97,20 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // 1. Update UI state immediately to trigger re-renders and unmount protected components
-    setIsLoggedIn(false);
-    setRole(UserRole.VISITOR);
-    
-    // 2. Clear all local data
+    // A limpeza forçada via recarregamento é a única forma de garantir 100% de sucesso
+    // em ambientes de marketplace com múltiplas sessões (Supabase + Mock)
     localStorage.clear();
     sessionStorage.clear();
     
-    // 3. Request Supabase to sign out (async but we don't block the UI)
     try {
       await supabase.auth.signOut();
     } catch (e) {
-      console.error("Erro ao fazer signOut no Supabase:", e);
+      console.error("Erro ao fazer signOut:", e);
     }
+
+    // Redireciona e recarrega para limpar o estado do React
+    window.location.href = '/#/';
+    window.location.reload();
   };
 
   if (isLoading) {
@@ -143,6 +143,7 @@ const App: React.FC = () => {
             <Route path="/blog/:id" element={<Article lang={language} />} />
             <Route path="/stands" element={<StandsList lang={language} />} />
             <Route path="/stand/:standName" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
+            
             <Route 
               path="/dashboard" 
               element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <StandDashboard lang={language} role={role} /> : <Navigate to="/login" />} 
@@ -167,6 +168,7 @@ const App: React.FC = () => {
               path="/cliente/editar" 
               element={isLoggedIn ? <EditProfile lang={language} onLogout={handleLogout} /> : <Navigate to="/login" />} 
             />
+
             <Route path="/admin/login" element={<AdminLogin lang={language} onLogin={handleLogin} />} />
             <Route path="/login" element={<Auth lang={language} mode="login" onLogin={handleLogin} />} />
             <Route path="/registo" element={<Auth lang={language} mode="register" onLogin={handleLogin} />} />
@@ -177,6 +179,7 @@ const App: React.FC = () => {
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
           </Routes>
         </main>
+
         <Footer lang={language} />
       </div>
     </HashRouter>

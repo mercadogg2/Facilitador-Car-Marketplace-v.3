@@ -31,7 +31,13 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
     setError(null);
     
     try {
-      // MASTER BYPASS: Permite que o admin entre pelo login comum
+      // 1. Tentar Autenticação Supabase (Sempre prioritária para persistência)
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email, 
+        password: formData.password,
+      });
+
+      // 2. MASTER BYPASS (Caso o Supabase falhe ou usuário admin local)
       if (mode === 'login' && formData.email === 'admin@facilitadorcar.pt' && formData.password === 'admin123') {
         const adminSession = {
           email: formData.email,
@@ -44,6 +50,8 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
         setTimeout(() => navigate('/admin'), 1000);
         return;
       }
+
+      if (signInError && mode === 'login') throw signInError;
 
       if (mode === 'register') {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -72,21 +80,13 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
             created_at: new Date().toISOString()
           }]);
         }
-      } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email, 
-          password: formData.password,
-        });
-        if (signInError) throw signInError;
       }
 
       setIsSuccess(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
-      const roleToSet: UserRole = user?.user_metadata?.role || userType;
-      
-      // Se for login comum mas com email de admin (via Supabase)
-      const finalRole = user?.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : roleToSet;
+      const finalRole = user?.email === 'admin@facilitadorcar.pt' 
+        ? UserRole.ADMIN 
+        : (user?.user_metadata?.role || userType);
       
       onLogin(finalRole);
 
