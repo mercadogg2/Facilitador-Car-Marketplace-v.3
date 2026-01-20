@@ -75,7 +75,6 @@ const App: React.FC = () => {
         const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
         setRole(userRole);
       } else {
-        // Se não houver sessão do Supabase, verificamos o mock local
         if (!localStorage.getItem('fc_session')) {
           setIsLoggedIn(false);
           setRole(UserRole.VISITOR);
@@ -98,15 +97,20 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // Limpeza atómica de todos os estados e storages
-    localStorage.clear(); 
+    // 1. Update UI state immediately to trigger re-renders and unmount protected components
+    setIsLoggedIn(false);
+    setRole(UserRole.VISITOR);
+    
+    // 2. Clear all local data
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // 3. Request Supabase to sign out (async but we don't block the UI)
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.error("Erro ao fazer signOut no Supabase:", e);
     }
-    setRole(UserRole.VISITOR);
-    setIsLoggedIn(false);
   };
 
   if (isLoading) {
@@ -133,15 +137,12 @@ const App: React.FC = () => {
             <Route path="/" element={<Home lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             <Route path="/veiculos" element={<Listings lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             <Route path="/veiculos/:id" element={<CarDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
-            
             <Route path="/v/:slug" element={<VanityCarDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
-            
             <Route path="/sobre" element={<About lang={language} />} />
             <Route path="/blog" element={<Blog lang={language} />} />
             <Route path="/blog/:id" element={<Article lang={language} />} />
             <Route path="/stands" element={<StandsList lang={language} />} />
             <Route path="/stand/:standName" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
-            
             <Route 
               path="/dashboard" 
               element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <StandDashboard lang={language} role={role} /> : <Navigate to="/login" />} 
@@ -154,12 +155,10 @@ const App: React.FC = () => {
               path="/editar-anuncio/:id" 
               element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <EditAd lang={language} /> : <Navigate to="/login" />} 
             />
-            
             <Route 
               path="/admin" 
               element={isLoggedIn && role === UserRole.ADMIN ? <AdminDashboard lang={language} role={role} /> : <Navigate to="/admin/login" />} 
             />
-            
             <Route 
               path="/cliente" 
               element={isLoggedIn ? <UserArea lang={language} favorites={favorites} onLogout={handleLogout} /> : <Navigate to="/login" />} 
@@ -168,7 +167,6 @@ const App: React.FC = () => {
               path="/cliente/editar" 
               element={isLoggedIn ? <EditProfile lang={language} onLogout={handleLogout} /> : <Navigate to="/login" />} 
             />
-
             <Route path="/admin/login" element={<AdminLogin lang={language} onLogin={handleLogin} />} />
             <Route path="/login" element={<Auth lang={language} mode="login" onLogin={handleLogin} />} />
             <Route path="/registo" element={<Auth lang={language} mode="register" onLogin={handleLogin} />} />
@@ -179,7 +177,6 @@ const App: React.FC = () => {
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
           </Routes>
         </main>
-
         <Footer lang={language} />
       </div>
     </HashRouter>

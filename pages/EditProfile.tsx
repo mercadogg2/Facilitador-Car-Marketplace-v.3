@@ -16,6 +16,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.VISITOR);
@@ -79,21 +80,20 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     fetchUserData();
   }, [navigate]);
 
-  const handleLogoutClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleLogoutClick = async () => {
     const confirmMsg = lang === 'pt' ? 'Tem a certeza que deseja sair?' : 'Are you sure you want to logout?';
     if (!window.confirm(confirmMsg)) return;
     
+    setIsLoggingOut(true);
     try {
       await onLogout();
-      // Após o logout, o App.tsx redirecionará automaticamente ou usamos replace para limpar o histórico
+      // O App.tsx já mudará o estado de isLoggedIn para false, o que fará este componente desmontar
+      // O navigate aqui é um fallback de segurança
       navigate('/', { replace: true });
     } catch (err) {
       console.error("Erro ao processar logout:", err);
-      localStorage.removeItem('fc_session');
-      navigate('/', { replace: true });
+      localStorage.clear();
+      window.location.href = '/#/';
     }
   };
 
@@ -189,11 +189,23 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           
           <button 
             type="button"
+            disabled={isLoggingOut}
             onClick={handleLogoutClick}
-            className="flex items-center text-red-500 hover:text-red-700 font-bold text-sm transition-all gap-2 px-4 py-2 rounded-xl hover:bg-red-50 bg-white shadow-sm border border-red-100"
+            className={`flex items-center font-bold text-sm transition-all gap-2 px-4 py-2 rounded-xl border shadow-sm ${
+              isLoggingOut 
+                ? 'bg-gray-100 text-gray-400 border-gray-200' 
+                : 'text-red-500 hover:text-red-700 bg-white border-red-100 hover:bg-red-50'
+            }`}
           >
-            <i className="fas fa-sign-out-alt"></i>
-            {lang === 'pt' ? 'Sair da Conta' : 'Logout'}
+            {isLoggingOut ? (
+              <i className="fas fa-circle-notch animate-spin"></i>
+            ) : (
+              <i className="fas fa-sign-out-alt"></i>
+            )}
+            {isLoggingOut 
+              ? (lang === 'pt' ? 'Saindo...' : 'Logging out...') 
+              : (lang === 'pt' ? 'Sair da Conta' : 'Logout')
+            }
           </button>
         </div>
 
