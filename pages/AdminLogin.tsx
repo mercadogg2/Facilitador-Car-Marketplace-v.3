@@ -21,8 +21,34 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ lang, onLogin }) => {
     setError(null);
     
     try {
-      // MASTER BYPASS: Admin Local
+      // 1. Tentar Autenticação REAL via Supabase primeiro (Essencial para permissões de escrita)
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
+
+      if (!authError && data.user) {
+        // Sucesso real no Supabase
+        const isAdmin = data.user.email === 'admin@facilitadorcar.pt' || data.user.user_metadata?.role === UserRole.ADMIN;
+        
+        if (!isAdmin) {
+          throw new Error(lang === 'pt' ? 'Acesso restrito a administradores.' : 'Restricted access for admins only.');
+        }
+
+        const adminSession = {
+          email: data.user.email,
+          role: UserRole.ADMIN,
+          timestamp: new Date().getTime()
+        };
+        localStorage.setItem('fc_session', JSON.stringify(adminSession));
+        onLogin(UserRole.ADMIN);
+        navigate('/admin');
+        return;
+      }
+
+      // 2. MASTER BYPASS (Caso o Supabase falhe ou credenciais mock)
       if (formData.email === 'admin@facilitadorcar.pt' && formData.password === 'admin123') {
+        console.warn("Entrando via Bypass Local. Algumas operações de escrita podem falhar.");
         const adminSession = {
           email: formData.email,
           role: UserRole.ADMIN,
@@ -34,27 +60,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ lang, onLogin }) => {
         return;
       }
 
-      // Tentativa via Supabase
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
-
+      // Se chegamos aqui, falhou no Supabase e não é o bypass correto
       if (authError) throw authError;
 
-      if (data.user?.email !== 'admin@facilitadorcar.pt' && data.user?.user_metadata?.role !== UserRole.ADMIN) {
-        throw new Error(lang === 'pt' ? 'Acesso restrito a administradores.' : 'Restricted access for admins only.');
-      }
-
-      const adminSession = {
-        email: data.user.email,
-        role: UserRole.ADMIN,
-        timestamp: new Date().getTime()
-      };
-      localStorage.setItem('fc_session', JSON.stringify(adminSession));
-      
-      onLogin(UserRole.ADMIN);
-      navigate('/admin');
     } catch (err: any) {
       setError(err.message === 'Invalid login credentials' 
         ? (lang === 'pt' ? 'Acesso negado. Credenciais inválidas.' : 'Access denied. Invalid credentials.')

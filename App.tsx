@@ -37,30 +37,33 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      // 1. Tentar recuperar sessão mock
+      // 1. Verificar sessão real Supabase
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
+          // Especial para admin@facilitadorcar.pt
+          const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
+          
+          setRole(finalRole);
+          setIsLoggedIn(true);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn("Supabase session check failed.");
+      }
+
+      // 2. Fallback para sessão mock local
       const localSession = localStorage.getItem('fc_session');
       if (localSession) {
         try {
           const sessionData = JSON.parse(localSession);
           setRole(sessionData.role);
           setIsLoggedIn(true);
-          setIsLoading(false);
-          return;
         } catch (e) {
           localStorage.removeItem('fc_session');
         }
-      }
-
-      // 2. Tentar recuperar sessão real Supabase
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
-          setRole(userRole);
-          setIsLoggedIn(true);
-        }
-      } catch (e) {
-        console.warn("Supabase session check failed.");
       }
       setIsLoading(false);
     };
@@ -68,15 +71,12 @@ const App: React.FC = () => {
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        window.location.hash = '/redefinir-senha';
-      }
-
-      if (session?.user) {
+      if (event === 'SIGNED_IN' && session?.user) {
         const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
-        setRole(userRole);
+        const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
+        setRole(finalRole);
         setIsLoggedIn(true);
-      } else if (!localStorage.getItem('fc_session')) {
+      } else if (event === 'SIGNED_OUT') {
         setRole(UserRole.VISITOR);
         setIsLoggedIn(false);
       }
@@ -98,7 +98,6 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     // A limpeza forçada via recarregamento é a única forma de garantir 100% de sucesso
-    // em ambientes de marketplace com múltiplas sessões (Supabase + Mock)
     localStorage.clear();
     sessionStorage.clear();
     

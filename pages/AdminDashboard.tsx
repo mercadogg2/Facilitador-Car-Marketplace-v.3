@@ -36,6 +36,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         navigate('/admin/login');
         return;
       }
+
+      if (!session) {
+        console.warn("Atenção: Administrador não autenticado no Supabase. Edições podem falhar.");
+      }
+
       fetchPlatformData();
     };
     checkAuth();
@@ -65,7 +70,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     setActionId(userId);
 
     try {
-      // Tentar persistir na base de dados
+      // 1. Verificar Sessão Supabase antes de tentar
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("Erro de Sessão: Você não está autenticado no Supabase. Faça logout e entre novamente para ativar as permissões administrativas.");
+        setActionId(null);
+        return;
+      }
+
+      // 2. Tentar persistir na base de dados
       const { error } = await supabase
         .from('profiles')
         .update({ status: newStatus })
@@ -73,19 +86,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
       if (error) {
         console.error("Erro Supabase:", error);
-        alert(`Erro de Persistência: ${error.message}\n\nCertifique-se que o usuário administrador tem permissões de escrita na tabela 'profiles'.`);
+        
+        if (error.message.includes("Could not find the 'status' column")) {
+          alert(`ERRO DE BASE DE DADOS:\n\nA coluna 'status' não existe na tabela 'profiles' do seu Supabase.\n\nComo corrigir:\n1. Vá ao Painel do Supabase -> SQL Editor\n2. Execute: ALTER TABLE profiles ADD COLUMN status text DEFAULT 'pending';\n3. Recarregue esta página.`);
+        } else {
+          alert(`Erro de Persistência: ${error.message}\n\nVerifique as políticas RLS ou se a coluna existe.`);
+        }
         return;
       }
 
       // APENAS após o sucesso no banco atualizamos o estado local
       setUsers(current => current.map(u => u.id === userId ? { ...u, status: newStatus } : u));
       
-      const successMsg = lang === 'pt' ? 'Estado atualizado com sucesso!' : 'Status updated successfully!';
-      console.log(successMsg);
-      
     } catch (err: any) {
-      console.error("Exceção:", err);
-      alert("Erro crítico ao ligar ao servidor.");
+      console.error("Exceção crítica:", err);
+      alert("Erro crítico de rede ou ligação.");
     } finally {
       setActionId(null);
     }
