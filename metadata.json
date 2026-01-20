@@ -1,0 +1,8 @@
+{
+  "name": " Facilitador Car Marketplace v.3",
+  "description": "A high-credibility automotive marketplace focused on generating qualified leads for verified dealerships, featuring advanced search, lead management, and multilingual support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
