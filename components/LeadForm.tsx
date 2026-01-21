@@ -35,37 +35,37 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         ? `PREFERÊNCIAS:\n- Contacto: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
         : `PREFERENCES:\n- Contact: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
-    // Salvamos o stand_name explicitamente para o dashboard encontrar o lead facilmente
+    // Normalizamos o nome do stand para evitar erros de espaço
     const leadPayload = {
-      customer_name: formData.name,
-      customer_email: formData.email,
-      customer_phone: formData.phone,
+      customer_name: formData.name.trim(),
+      customer_email: formData.email.trim(),
+      customer_phone: formData.phone.trim(),
       car_id: car.id, 
-      stand_name: car.stand_name, // CAMPO CRUCIAL ADICIONADO
+      stand_name: car.stand_name?.trim(), 
       message: fullMessage,
       status: 'Pendente'
     };
 
     try {
-      console.log("📤 Enviando Lead:", leadPayload);
+      console.log("📤 Tentando salvar lead para o stand:", car.stand_name);
 
-      const { error, status } = await supabase
+      const { error } = await supabase
         .from('leads')
         .insert([leadPayload]);
 
       if (error) {
-        console.error("❌ Erro Supabase:", error);
+        console.error("❌ Erro ao inserir no Supabase:", error);
         setErrorDetails(error.message);
         return;
       }
 
-      console.log("✅ Lead salvo! Status:", status);
+      console.log("✅ Lead enviado com sucesso!");
       setIsSuccess(true);
-      setTimeout(onClose, 2500);
+      setTimeout(onClose, 2000);
 
     } catch (err: any) {
-      console.error("💥 Falha Crítica:", err);
-      setErrorDetails(err.message || "Erro de rede.");
+      console.error("💥 Erro de rede ou crash:", err);
+      setErrorDetails(err.message || "Erro desconhecido.");
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +79,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">Enviado!</h2>
-          <p className="text-gray-500 font-medium">O stand recebeu o seu contacto.</p>
+          <p className="text-gray-500 font-medium text-sm">O stand entrará em contacto brevemente.</p>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         <div className="bg-blue-600 p-8 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-black text-white">{lang === 'pt' ? 'Demonstrar Interesse' : 'Show Interest'}</h2>
-            <p className="text-blue-100 text-xs font-bold">{car.brand} {car.model}</p>
+            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">Enviando para: {car.stand_name}</p>
           </div>
           <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
             <i className="fas fa-times text-xl"></i>
@@ -100,8 +100,8 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
 
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           {errorDetails && (
-            <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl text-[11px] font-bold leading-relaxed">
-              <i className="fas fa-bug mr-2"></i> Erro ao guardar: {errorDetails}
+            <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl text-[11px] font-bold">
+              <i className="fas fa-exclamation-circle mr-2"></i> Falha ao guardar lead: {errorDetails}
             </div>
           )}
 
