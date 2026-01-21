@@ -9,12 +9,9 @@ interface LeadFormProps {
   onClose: () => void;
 }
 
-const LeadForm: React.FC<LeadFormProps> = ({ car, lang }) => {
-  return null; 
-};
-
 export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -32,8 +29,8 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
 
     const fullMessage = `${formData.message}\n\n` +
       (lang === 'pt' 
-        ? `Preferência de contacto: ${formData.contactPreference}\nPretende comprar: ${formData.paymentMethod}`
-        : `Contact Preference: ${formData.contactPreference}\nPayment Method: ${formData.paymentMethod}`);
+        ? `PREFERÊNCIAS:\n- Contacto: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
+        : `PREFERENCES:\n- Contact: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
     try {
       const { error } = await supabase.from('leads').insert([{
@@ -47,9 +44,13 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
 
       if (error) throw error;
 
-      const whatsappMsg = encodeURIComponent(`${fullMessage}\n\nDe: ${formData.name}\nTelemóvel: ${formData.phone}`);
-      window.open(`https://wa.me/351912345678?text=${whatsappMsg}`, '_blank');
-      onClose();
+      setIsSuccess(true);
+      
+      // Fecha o formulário após 3 segundos de sucesso
+      setTimeout(() => {
+        onClose();
+      }, 3000);
+
     } catch (err) {
       console.error("Erro ao guardar lead:", err);
       alert(lang === 'pt' ? "Erro ao enviar pedido. Tente novamente." : "Error sending request. Try again.");
@@ -57,6 +58,32 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
       setIsSubmitting(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-10 text-center animate-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+            <i className="fas fa-check"></i>
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">
+            {lang === 'pt' ? 'Pedido Enviado!' : 'Request Sent!'}
+          </h2>
+          <p className="text-gray-500 font-medium">
+            {lang === 'pt' 
+              ? 'Obrigado pelo seu interesse. O vendedor entrará em contacto em breve.' 
+              : 'Thank you for your interest. The seller will contact you shortly.'}
+          </p>
+          <button 
+            onClick={onClose}
+            className="mt-8 text-sm font-bold text-blue-600 hover:underline"
+          >
+            {lang === 'pt' ? 'Fechar' : 'Close'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
@@ -172,15 +199,12 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-green-100 flex items-center justify-center space-x-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-100 flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
               <i className="fas fa-circle-notch animate-spin"></i>
             ) : (
-              <>
-                <i className="fab fa-whatsapp text-xl"></i>
-                <span>{lang === 'pt' ? 'Enviar Interesse via WhatsApp' : 'Send Interest via WhatsApp'}</span>
-              </>
+              <span>{lang === 'pt' ? 'Enviar Interesse' : 'Send Interest'}</span>
             )}
           </button>
           

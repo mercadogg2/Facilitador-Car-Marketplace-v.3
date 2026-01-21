@@ -119,9 +119,8 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
             <div className="md:ml-auto">
               <button 
                 onClick={() => window.open(`https://wa.me/351${standProfile?.phone || '912345678'}`, '_blank')}
-                className="bg-white text-gray-900 px-8 py-4 rounded-2xl font-black hover:bg-blue-50 transition-all shadow-xl flex items-center gap-3"
+                className="bg-white text-gray-900 px-8 py-4 rounded-2xl font-black hover:bg-blue-50 transition-all shadow-xl flex items-center justify-center"
               >
-                <i className="fab fa-whatsapp text-2xl text-green-500"></i>
                 {t.contactStand}
               </button>
             </div>

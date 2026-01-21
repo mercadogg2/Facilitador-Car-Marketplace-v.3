@@ -172,7 +172,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                 onClick={() => setContactingCar(car)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 rounded-2xl transition-all shadow-xl shadow-blue-200 flex items-center justify-center text-lg group"
               >
-                <i className="fab fa-whatsapp mr-3 text-2xl group-hover:scale-110 transition-transform"></i>
                 {tc.contact}
               </button>
 

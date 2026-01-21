@@ -17,6 +17,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'ads' | 'users' | 'leads'>('overview');
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -365,61 +366,86 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                     <th className="px-8 py-5">Dados de Contacto</th>
                     <th className="px-8 py-5">Interesse / Stand</th>
                     <th className="px-8 py-5">Data</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredLeads.length === 0 ? (
-                    <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado.</td></tr>
+                    <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado.</td></tr>
                   ) : filteredLeads.map(l => (
-                    <tr key={l.id} className="hover:bg-slate-50/20 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="font-bold text-slate-900">{l.customer_name}</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3 group">
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
-                              <i className="fas fa-envelope"></i>
+                    <React.Fragment key={l.id}>
+                      <tr className="hover:bg-slate-50/20 transition-colors">
+                        <td className="px-8 py-6">
+                          <div className="font-bold text-slate-900">{l.customer_name}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3 group">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                                <i className="fas fa-envelope"></i>
+                              </div>
+                              <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
+                              <button 
+                                onClick={() => copyToClipboard(l.customer_email, 'E-mail')}
+                                className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 hover:underline font-bold transition-opacity"
+                              >
+                                Copiar
+                              </button>
                             </div>
-                            <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
-                            <button 
-                              onClick={() => copyToClipboard(l.customer_email, 'E-mail')}
-                              className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 hover:underline font-bold transition-opacity"
-                            >
-                              Copiar
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-3 group">
-                            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
-                              <i className="fas fa-phone"></i>
+                            <div className="flex items-center gap-3 group">
+                              <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
+                                <i className="fas fa-phone"></i>
+                              </div>
+                              <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
+                              <button 
+                                onClick={() => copyToClipboard(l.customer_phone, 'Telefone')}
+                                className="opacity-0 group-hover:opacity-100 text-[10px] text-green-500 hover:underline font-bold transition-opacity"
+                              >
+                                Copiar
+                              </button>
                             </div>
-                            <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
-                            <button 
-                              onClick={() => copyToClipboard(l.customer_phone, 'Telefone')}
-                              className="opacity-0 group-hover:opacity-100 text-[10px] text-green-500 hover:underline font-bold transition-opacity"
-                            >
-                              Copiar
-                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          { (l.cars as any)?.image && (
-                            <img src={(l.cars as any).image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
-                          )}
-                          <div>
-                            <div className="text-sm font-bold text-slate-900">{(l.cars as any)?.brand} {(l.cars as any)?.model}</div>
-                            <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {(l.cars as any)?.stand_name}</div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            { (l.cars as any)?.image && (
+                              <img src={(l.cars as any).image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
+                            )}
+                            <div>
+                              <div className="text-sm font-bold text-slate-900">{(l.cars as any)?.brand} {(l.cars as any)?.model}</div>
+                              <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {(l.cars as any)?.stand_name}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
-                        <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
+                          <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button 
+                            onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                              expandedLead === l.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            }`}
+                          >
+                            {expandedLead === l.id ? 'Fechar' : 'Ver Detalhes'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedLead === l.id && (
+                        <tr>
+                          <td colSpan={5} className="px-8 py-0">
+                            <div className="bg-slate-50/50 rounded-2xl p-6 mb-4 animate-in slide-in-from-top-2">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-3">Conteúdo da Mensagem e Preferências</h4>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium italic">
+                                "{l.message}"
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

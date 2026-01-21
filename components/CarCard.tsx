@@ -97,7 +97,6 @@ const CarCard: React.FC<CarCardProps> = ({ car, lang, onToggleFavorite, isFavori
             className="w-full bg-gray-50 hover:bg-blue-50 text-gray-900 hover:text-blue-700 font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center border border-gray-100 hover:border-blue-200"
           >
             {t.contact}
-            <i className="fab fa-whatsapp ml-2.5 text-green-500 text-lg"></i>
           </button>
         </div>
       </div>
