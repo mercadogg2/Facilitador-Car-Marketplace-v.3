@@ -35,37 +35,37 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         ? `PREFERÊNCIAS:\n- Contacto: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
         : `PREFERENCES:\n- Contact: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
-    // Normalizamos o nome do stand para evitar erros de espaço
+    // GARANTIA: O nome do stand é limpo e normalizado
+    const targetStand = car.stand_name?.trim() || "Particular";
+
     const leadPayload = {
       customer_name: formData.name.trim(),
-      customer_email: formData.email.trim(),
+      customer_email: formData.email.trim().toLowerCase(),
       customer_phone: formData.phone.trim(),
       car_id: car.id, 
-      stand_name: car.stand_name?.trim(), 
+      stand_name: targetStand, 
       message: fullMessage,
       status: 'Pendente'
     };
 
     try {
-      console.log("📤 Tentando salvar lead para o stand:", car.stand_name);
+      console.log("📤 Enviando lead para o stand:", targetStand);
 
       const { error } = await supabase
         .from('leads')
         .insert([leadPayload]);
 
       if (error) {
-        console.error("❌ Erro ao inserir no Supabase:", error);
+        console.error("❌ Erro Supabase:", error);
         setErrorDetails(error.message);
         return;
       }
 
-      console.log("✅ Lead enviado com sucesso!");
       setIsSuccess(true);
       setTimeout(onClose, 2000);
 
     } catch (err: any) {
-      console.error("💥 Erro de rede ou crash:", err);
-      setErrorDetails(err.message || "Erro desconhecido.");
+      setErrorDetails(err.message || "Erro de conexão.");
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +79,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">Enviado!</h2>
-          <p className="text-gray-500 font-medium text-sm">O stand entrará em contacto brevemente.</p>
+          <p className="text-gray-500 font-medium text-sm">O stand recebeu o seu contacto.</p>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         <div className="bg-blue-600 p-8 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-black text-white">{lang === 'pt' ? 'Demonstrar Interesse' : 'Show Interest'}</h2>
-            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">Enviando para: {car.stand_name}</p>
+            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mt-1">Destinatário: {car.stand_name}</p>
           </div>
           <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
             <i className="fas fa-times text-xl"></i>
@@ -101,24 +101,24 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           {errorDetails && (
             <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl text-[11px] font-bold">
-              <i className="fas fa-exclamation-circle mr-2"></i> Falha ao guardar lead: {errorDetails}
+              <i className="fas fa-exclamation-triangle mr-2"></i> {errorDetails}
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Nome</label>
-              <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" />
+              <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 outline-none font-bold text-sm" />
             </div>
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Telemóvel</label>
-              <input required type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" />
+              <input required type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 outline-none font-bold text-sm" />
             </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">E-mail</label>
-            <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" />
+            <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 outline-none font-bold text-sm" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -145,7 +145,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
           >
             {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-paper-plane"></i>}
-            {lang === 'pt' ? 'Enviar Mensagem' : 'Send Message'}
+            Enviar Agora
           </button>
         </form>
       </div>
