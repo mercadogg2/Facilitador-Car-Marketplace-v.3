@@ -30,15 +30,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const localSession = localStorage.getItem('fc_session');
-      const isAdmin = role === UserRole.ADMIN || session?.user?.email === 'admin@facilitadorcar.pt' || (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
+      
+      // Verifica se é admin pelo Supabase ou pelo fallback local
+      const isAdmin = role === UserRole.ADMIN || 
+                      session?.user?.email === 'admin@facilitadorcar.pt' || 
+                      (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
 
       if (!isAdmin) {
         navigate('/admin/login');
         return;
-      }
-
-      if (!session) {
-        console.warn("Atenção: Administrador não autenticado no Supabase. Edições podem falhar.");
       }
 
       fetchPlatformData();
@@ -67,40 +67,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
+    // Bloquear interações múltiplas enquanto processa
+    if (actionId) return;
     setActionId(userId);
 
     try {
-      // 1. Verificar Sessão Supabase antes de tentar
+      // 1. Verificar se existe sessão ativa para garantir permissões RLS
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert("Erro de Sessão: Você não está autenticado no Supabase. Faça logout e entre novamente para ativar as permissões administrativas.");
-        setActionId(null);
+      
+      if (!session && !localStorage.getItem('fc_session')) {
+        alert("Sessão expirada. Por favor, faça login novamente.");
+        navigate('/admin/login');
         return;
       }
 
-      // 2. Tentar persistir na base de dados
-      const { error } = await supabase
+      // 2. Executar o UPDATE no banco de dados
+      // Importante: newStatus deve ser 'approved', 'rejected' ou 'pending'
+      const { error, data } = await supabase
         .from('profiles')
         .update({ status: newStatus })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
       if (error) {
-        console.error("Erro Supabase:", error);
+        console.error("Erro Supabase na persistência:", error);
         
-        if (error.message.includes("Could not find the 'status' column")) {
-          alert(`ERRO DE BASE DE DADOS:\n\nA coluna 'status' não existe na tabela 'profiles' do seu Supabase.\n\nComo corrigir:\n1. Vá ao Painel do Supabase -> SQL Editor\n2. Execute: ALTER TABLE profiles ADD COLUMN status text DEFAULT 'pending';\n3. Recarregue esta página.`);
+        // Se o erro for de cache de schema, sugerimos o reload forçado
+        if (error.message.includes("schema cache")) {
+          alert("O Supabase ainda não reconheceu a nova coluna. Por favor, execute 'NOTIFY pgrst, 'reload schema';' no seu SQL Editor e recarregue esta página.");
         } else {
-          alert(`Erro de Persistência: ${error.message}\n\nVerifique as políticas RLS ou se a coluna existe.`);
+          alert(`Erro ao salvar no banco: ${error.message}`);
         }
         return;
       }
 
-      // APENAS após o sucesso no banco atualizamos o estado local
-      setUsers(current => current.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+      // 3. APENAS APÓS SUCESSO NO DB: Atualizar o estado da UI
+      setUsers(current => 
+        current.map(u => u.id === userId ? { ...u, status: newStatus } : u)
+      );
       
+      console.log(`Utilizador ${userId} atualizado para ${newStatus} com sucesso.`);
+
     } catch (err: any) {
       console.error("Exceção crítica:", err);
-      alert("Erro crítico de rede ou ligação.");
+      alert("Erro de conexão com o servidor. Verifique a sua internet.");
     } finally {
       setActionId(null);
     }

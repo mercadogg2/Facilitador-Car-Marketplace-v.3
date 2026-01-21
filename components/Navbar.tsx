@@ -39,7 +39,7 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center group">
               <img 
-                src="https://facilitadorcar.com/wp-content/uploads/2026/01/logo-facilitador.png" 
+                src="https://facilitadorcar.com/wp-content/uploads/2026/01/logotipo-centralizado-colorido-sobre-claro-scaled.png" 
                 alt="Facilitador Car" 
                 className="h-20 w-auto object-contain"
               />

@@ -109,7 +109,7 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/" className="flex justify-center mb-10">
-          <img src="https://facilitadorcar.com/wp-content/uploads/2026/01/logo-facilitador.png" alt="Logo" className="h-24 w-auto" />
+          <img src="https://facilitadorcar.com/wp-content/uploads/2026/01/logotipo-centralizado-colorido-sobre-claro-scaled.png" alt="Logo" className="h-24 w-auto" />
         </Link>
         <h2 className="text-center text-3xl font-black text-gray-900 tracking-tight">
           {mode === 'login' ? t.loginTitle : t.registerTitle}

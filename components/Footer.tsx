@@ -18,7 +18,7 @@ const Footer: React.FC<FooterProps> = ({ lang }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <img 
-              src="https://facilitadorcar.com/wp-content/uploads/2026/01/logo-facilitador.png" 
+              src="https://facilitadorcar.com/wp-content/uploads/2026/01/logotipo-centralizado-colorido-sobre-claro-scaled.png" 
               alt="Facilitador Car" 
               className="h-24 w-auto mb-6 brightness-0 invert"
             />

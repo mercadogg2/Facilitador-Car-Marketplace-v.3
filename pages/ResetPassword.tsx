@@ -72,7 +72,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ lang }) => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/" className="flex justify-center items-center mb-10">
           <img 
-            src="https://facilitadorcar.com/wp-content/uploads/2026/01/logo-facilitador.png" 
+            src="https://facilitadorcar.com/wp-content/uploads/2026/01/logotipo-centralizado-colorido-sobre-claro-scaled.png" 
             alt="Facilitador Car" 
             className="h-32 w-auto"
           />

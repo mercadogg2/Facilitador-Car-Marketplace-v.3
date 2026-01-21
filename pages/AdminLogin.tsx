@@ -21,7 +21,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ lang, onLogin }) => {
     setError(null);
     
     try {
-      // 1. Tentar Autenticação REAL via Supabase primeiro (Essencial para permissões de escrita)
+      // 1. Tentar Autenticação REAL via Supabase primeiro (Essencial para permissões de escrita RLS)
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
@@ -35,20 +35,22 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ lang, onLogin }) => {
           throw new Error(lang === 'pt' ? 'Acesso restrito a administradores.' : 'Restricted access for admins only.');
         }
 
+        // Sessão mock para compatibilidade com o estado legado se necessário
         const adminSession = {
           email: data.user.email,
           role: UserRole.ADMIN,
           timestamp: new Date().getTime()
         };
         localStorage.setItem('fc_session', JSON.stringify(adminSession));
+        
         onLogin(UserRole.ADMIN);
         navigate('/admin');
         return;
       }
 
-      // 2. MASTER BYPASS (Caso o Supabase falhe ou credenciais mock)
+      // 2. MASTER BYPASS (Caso o Supabase falhe mas as credenciais batam com o hardcoded)
+      // AVISO: Isso permite ver o painel, mas as edições no banco de dados falharão se não houver sessão Supabase.
       if (formData.email === 'admin@facilitadorcar.pt' && formData.password === 'admin123') {
-        console.warn("Entrando via Bypass Local. Algumas operações de escrita podem falhar.");
         const adminSession = {
           email: formData.email,
           role: UserRole.ADMIN,
@@ -60,7 +62,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ lang, onLogin }) => {
         return;
       }
 
-      // Se chegamos aqui, falhou no Supabase e não é o bypass correto
       if (authError) throw authError;
 
     } catch (err: any) {

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Language, Car, Lead, UserRole, ProfileStatus } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
@@ -16,7 +15,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   const tc = TRANSLATIONS[lang].common;
   const navigate = useNavigate();
   const [standName, setStandName] = useState('');
-  const [status, setStatus] = useState<ProfileStatus>('approved');
+  const [status, setStatus] = useState<ProfileStatus>('pending');
   const [myCars, setMyCars] = useState<Car[]>([]);
   const [myLeads, setMyLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,16 +33,18 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         const profileName = user.user_metadata?.stand_name || 'Stand';
         setStandName(profileName);
         
+        // Busca status real da tabela profiles para garantir a regra de negócio
         const { data: profile } = await supabase
           .from('profiles')
-          .select('status')
+          .select('status, role')
           .eq('id', user.id)
           .single();
         
-        const currentStatus = profile?.status || user.user_metadata?.status || 'pending';
+        const currentStatus = profile?.status || 'pending';
         setStatus(currentStatus);
 
-        if (currentStatus === 'approved') {
+        // Apenas stands aprovados ou admins podem ver dados e stock
+        if (currentStatus === 'approved' || profile?.role === UserRole.ADMIN) {
           const { data: carsData } = await supabase
             .from('cars')
             .select('*')
@@ -93,20 +94,50 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     );
   }
 
+  const isApproved = status === 'approved' || role === UserRole.ADMIN;
+
   return (
     <div className="bg-gray-50 min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Banner de Status - Regra de Negócio Crucial */}
+        {!isApproved && (
+          <div className={`p-6 rounded-[30px] border flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-top duration-500 shadow-sm ${
+            status === 'pending' 
+              ? 'bg-amber-50 border-amber-100 text-amber-800' 
+              : 'bg-red-50 border-red-100 text-red-800'
+          }`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm ${
+              status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
+            }`}>
+              <i className={`fas ${status === 'pending' ? 'fa-hourglass-half' : 'fa-ban'}`}></i>
+            </div>
+            <div className="flex-grow text-center md:text-left">
+              <h3 className="text-lg font-black tracking-tight">
+                {status === 'pending' 
+                  ? (lang === 'pt' ? 'Conta em Análise' : 'Account Under Review')
+                  : (lang === 'pt' ? 'Acesso Restrito' : 'Restricted Access')}
+              </h3>
+              <p className="text-sm font-medium opacity-90 leading-relaxed">
+                {status === 'pending'
+                  ? (lang === 'pt' ? 'A sua conta de stand profissional está a ser validada pela nossa equipa. Receberá um e-mail em breve com o resultado da análise.' : 'Your professional stand account is being validated by our team. You will receive an email soon.')
+                  : (lang === 'pt' ? 'Infelizmente, o seu acesso de stand profissional não foi aprovado. Contacte o suporte para habilitar a criação de anuncios.' : 'Unfortunately, your professional stand access was not approved. Contact support to enable listing creation.')}
+              </p>
+            </div>
+          </div>
+        )}
+
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t.title}</h1>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-gray-500 font-medium">{standName}</span>
-              <Link 
-                to={`/stand/${encodeURIComponent(standName)}`}
-                className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 underline"
-              >
-                Ver Perfil Público
-              </Link>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-none">{t.title}</h1>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="text-gray-500 font-bold">{standName}</span>
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                status === 'approved' ? 'bg-green-100 text-green-700' : 
+                status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+              }`}>
+                {status}
+              </span>
             </div>
           </div>
           <div className="flex gap-4">
@@ -118,10 +149,15 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
               {lang === 'pt' ? 'Editar Perfil' : 'Edit Profile'}
             </button>
             <button 
-              onClick={() => navigate('/anunciar')}
-              className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-2"
+              onClick={() => isApproved && navigate('/anunciar')}
+              disabled={!isApproved}
+              className={`px-8 py-4 rounded-2xl font-black flex items-center gap-3 transition-all ${
+                isApproved 
+                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5' 
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed grayscale'
+              }`}
             >
-              <i className="fas fa-plus"></i>
+              <i className={`fas ${isApproved ? 'fa-plus' : 'fa-lock'}`}></i>
               {t.newAd}
             </button>
           </div>
@@ -132,7 +168,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-xl font-black">{t.myVehicles}</h3>
-                <span className="text-xs font-bold text-gray-400">{myCars.length} viaturas ativas</span>
+                <span className="text-xs font-bold text-gray-400">{myCars.length} viaturas</span>
               </div>
               
               <div className="overflow-x-auto">
@@ -145,9 +181,20 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {myCars.length === 0 ? (
+                    {!isApproved ? (
+                       <tr>
+                        <td colSpan={3} className="px-4 py-20 text-center text-gray-400">
+                          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i className="fas fa-lock text-2xl opacity-20"></i>
+                          </div>
+                          <p className="font-bold">Conteúdo bloqueado até à aprovação da conta.</p>
+                        </td>
+                      </tr>
+                    ) : myCars.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-10 text-center text-gray-400 font-bold">Ainda não tem veículos anunciados.</td>
+                        <td colSpan={3} className="px-4 py-16 text-center text-gray-400 font-bold italic">
+                          Ainda não possui anúncios publicados.
+                        </td>
                       </tr>
                     ) : myCars.map(car => (
                       <tr key={car.id} className="group hover:bg-gray-50/50 transition-colors">
@@ -157,11 +204,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                             <div>
                               <p className="font-bold text-gray-900 leading-tight">{car.brand} {car.model}</p>
                               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{car.year} • {car.fuel}</p>
-                              {car.subdomain && (
-                                <p className="text-[8px] font-black text-blue-600 uppercase tracking-tighter mt-1">
-                                  Link: /v/{car.subdomain}
-                                </p>
-                              )}
                             </div>
                           </div>
                         </td>
@@ -172,36 +214,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                         </td>
                         <td className="px-4 py-6 text-right">
                           <div className="flex justify-end gap-2">
-                            {car.subdomain && (
-                              <button 
-                                onClick={() => handleCopyLink(car.subdomain!)}
-                                className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shadow-sm flex items-center justify-center transition-all hover:bg-blue-600 hover:text-white"
-                                title="Copiar Link Único"
-                              >
-                                <i className="fas fa-link"></i>
-                              </button>
-                            )}
-                            <Link 
-                              to={`/veiculos/${car.id}`}
-                              className="w-10 h-10 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-blue-600 hover:border-blue-100 shadow-sm flex items-center justify-center transition-all"
-                              title="Ver Anúncio"
-                            >
-                              <i className="fas fa-eye"></i>
-                            </Link>
-                            <Link 
-                              to={`/editar-anuncio/${car.id}`}
-                              className="w-10 h-10 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-amber-600 hover:border-amber-100 shadow-sm flex items-center justify-center transition-all"
-                              title="Editar Anúncio"
-                            >
-                              <i className="fas fa-edit"></i>
-                            </Link>
-                            <button 
-                              onClick={() => handleDeleteCar(car.id)}
-                              className="w-10 h-10 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-red-600 hover:border-red-100 shadow-sm flex items-center justify-center transition-all"
-                              title="Eliminar"
-                            >
-                              <i className="fas fa-trash-alt"></i>
-                            </button>
+                            <Link to={`/veiculos/${car.id}`} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-blue-600 flex items-center justify-center transition-all"><i className="fas fa-eye"></i></Link>
+                            <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-amber-600 flex items-center justify-center transition-all"><i className="fas fa-edit"></i></Link>
+                            <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-red-600 flex items-center justify-center transition-all"><i className="fas fa-trash-alt"></i></button>
                           </div>
                         </td>
                       </tr>
@@ -216,13 +231,20 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                <h3 className="text-xl font-black mb-6">{t.recentLeads}</h3>
                <div className="space-y-4">
-                 {myLeads.length === 0 ? (
-                   <p className="text-gray-400 text-sm font-medium">Nenhum lead recebido recentemente.</p>
+                 {!isApproved ? (
+                   <div className="p-6 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-center">
+                     <i className="fas fa-shield-alt text-slate-300 mb-2 block"></i>
+                     <p className="text-slate-400 text-xs font-bold leading-relaxed">
+                       {status === 'pending' ? 'Os leads serão desbloqueados após a validação.' : 'Acesso a leads negado.'}
+                     </p>
+                   </div>
+                 ) : myLeads.length === 0 ? (
+                   <p className="text-gray-400 text-sm font-medium">Sem novos leads.</p>
                  ) : myLeads.slice(0, 5).map(lead => (
                    <div key={lead.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                      <p className="font-bold text-sm text-gray-900">{lead.customer_name}</p>
                      <p className="text-[10px] font-bold text-blue-600 mt-1 uppercase">
-                       Interesse: {(lead.cars as any)?.brand} {(lead.cars as any)?.model}
+                       { (lead.cars as any)?.brand } { (lead.cars as any)?.model }
                      </p>
                    </div>
                  ))}

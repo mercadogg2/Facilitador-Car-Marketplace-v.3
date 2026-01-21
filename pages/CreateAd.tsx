@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Language } from '../types';
+import { Language, UserRole, ProfileStatus } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
@@ -15,6 +15,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [images, setImages] = useState<string[]>([]);
@@ -32,10 +33,44 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     subdomain: ''
   });
 
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate('/login');
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status, role')
+          .eq('id', user.id)
+          .single();
+
+        // Admin tem bypass, mas Stand precisa de status 'approved'
+        const isAdmin = user.email === 'admin@facilitadorcar.pt' || profile?.role === UserRole.ADMIN;
+        
+        if (profile?.status !== 'approved' && !isAdmin) {
+          alert(lang === 'pt' 
+            ? 'Infelizmente, o seu acesso de stand profissional ainda não foi aprovado. Contacte o suporte para habilitar a criação de anúncios.' 
+            : 'Unfortunately, your stand account is not yet approved. Please contact support.');
+          navigate('/dashboard');
+          return;
+        }
+      } catch (e) {
+        console.error("Status check error", e);
+        navigate('/dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkStatus();
+  }, [navigate, lang]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // Higienização para o link personalizado
     if (name === 'subdomain') {
       const sanitized = value
         .toLowerCase()
@@ -119,6 +154,14 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   if (isSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -127,7 +170,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">{t.success}</h2>
-          <p className="text-gray-500 font-medium">Anúncio criado com sucesso.</p>
+          <p className="text-gray-500 font-medium">Anúncio publicado e pronto a receber leads.</p>
         </div>
       </div>
     );
@@ -137,7 +180,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     <div className="bg-gray-50 min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12">
-          <h1 className="text-4xl font-black text-gray-900 mb-4">{t.title}</h1>
+          <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">{t.title}</h1>
           <p className="text-lg text-gray-500 font-medium">{t.subtitle}</p>
         </header>
 
@@ -162,7 +205,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
                   >
                     <i className="fas fa-times"></i>
                   </button>
-                  {idx === 0 && <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-[8px] text-white text-center py-1 font-black uppercase">Capa</div>}
+                  {idx === 0 && <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-[8px] text-white text-center py-1 font-black uppercase tracking-widest">Capa</div>}
                 </div>
               ))}
               
@@ -273,13 +316,12 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
             />
           </div>
 
-          {/* Marketing e Link Personalizado */}
           <div className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
              <h3 className="text-xl font-black text-gray-900 mb-2 flex items-center">
               <i className="fas fa-link mr-3 text-blue-600"></i>
               Link Único do Anúncio
             </h3>
-            <p className="text-sm text-gray-400 font-medium mb-8">Crie uma URL exclusiva para facilitar a partilha e melhorar o SEO do seu veículo.</p>
+            <p className="text-sm text-gray-400 font-medium mb-8">Crie uma URL exclusiva para partilhar o veículo diretamente.</p>
             
             <div className="bg-gray-50 p-6 rounded-2xl border border-dashed border-gray-200">
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Slug do Link</label>
@@ -293,10 +335,6 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
                   className="flex-grow bg-white px-4 py-3 rounded-xl border border-gray-100 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600"
                 />
               </div>
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
-                <i className="fas fa-info-circle text-blue-500"></i>
-                Visualização Final: <span className="text-gray-900">facilitadorcar.com/#/v/{formData.subdomain || '...'}</span>
-              </p>
             </div>
           </div>
 
