@@ -33,10 +33,9 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         : `CUSTOMER DETAILS:\n- Preference: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
     try {
-      console.log("A enviar lead para processamento...");
+      console.log("Iniciando submissão para carro ID:", car.id);
 
-      // REMOVIDO .select() - Isso evita que o Supabase tente ler a linha recém-criada,
-      // o que dispararia um erro de RLS de SELECT (leitura) em vez de apenas INSERT (escrita).
+      // Inserção sem .select() para evitar erro de leitura (SELECT) em RLS de anon
       const { error } = await supabase
         .from('leads')
         .insert([{
@@ -49,18 +48,20 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         }]);
 
       if (error) {
-        console.error("Erro Supabase:", error);
+        console.error("Erro detalhado do Supabase:", error);
         
-        // Se for erro de RLS, dar uma dica direta
-        if (error.message.includes('row-level security')) {
-          throw new Error(lang === 'pt' 
-            ? "O banco de dados está a bloquear o envio. Por favor, execute o comando SQL de permissão no painel do Supabase (detalhes no console)." 
-            : "Database is blocking the request. Please enable INSERT policy for 'anon' role in Supabase leads table.");
+        // Se for erro de RLS, alertar o usuário sobre a configuração necessária
+        if (error.message.toLowerCase().includes('row-level security') || error.code === '42501') {
+          alert(lang === 'pt' 
+            ? "ERRO DE PERMISSÃO: O banco de dados recusou o registro (RLS). Por favor, verifique as políticas de segurança da tabela 'leads' no painel do Supabase." 
+            : "PERMISSION ERROR: Database rejected the record (RLS). Please check security policies for 'leads' table in Supabase.");
+        } else {
+          alert(`Erro: ${error.message}`);
         }
-        throw error;
+        return;
       }
 
-      console.log("Lead registado com sucesso!");
+      console.log("Lead enviado com sucesso!");
       setIsSuccess(true);
       
       setTimeout(() => {
@@ -68,8 +69,8 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
       }, 3000);
 
     } catch (err: any) {
-      console.error("Erro na submissão:", err);
-      alert(err.message || (lang === 'pt' ? "Erro ao enviar pedido." : "Error sending request."));
+      console.error("Erro inesperado:", err);
+      alert(lang === 'pt' ? "Ocorreu um erro inesperado ao enviar." : "An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,50 +155,33 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
           </div>
 
           <div className="space-y-4 pt-2">
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-2">
-                {lang === 'pt' ? 'Como prefere ser contactado?' : 'How do you prefer to be contacted?'}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {['WhatsApp', lang === 'pt' ? 'Ligação' : 'Call'].map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setFormData({...formData, contactPreference: option})}
-                    className={`py-2 px-4 rounded-xl border-2 text-sm font-bold transition-all ${
-                      formData.contactPreference === option 
-                        ? 'border-blue-600 bg-blue-50 text-blue-700' 
-                        : 'border-gray-100 text-gray-500 hover:border-gray-200'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-2">
+                  {lang === 'pt' ? 'Contacto' : 'Contact'}
+                </label>
+                <select 
+                  className="w-full px-3 py-2 rounded-xl border border-gray-100 text-sm"
+                  value={formData.contactPreference}
+                  onChange={(e) => setFormData({...formData, contactPreference: e.target.value})}
+                >
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Chamada">Chamada</option>
+                  <option value="Email">Email</option>
+                </select>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-2">
-                {lang === 'pt' ? 'Método de Pagamento' : 'Payment Method'}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  lang === 'pt' ? 'Pronto Pagamento' : 'Cash',
-                  lang === 'pt' ? 'Financiamento' : 'Financing'
-                ].map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setFormData({...formData, paymentMethod: option})}
-                    className={`py-2 px-4 rounded-xl border-2 text-sm font-bold transition-all ${
-                      formData.paymentMethod === option 
-                        ? 'border-blue-600 bg-blue-50 text-blue-700' 
-                        : 'border-gray-100 text-gray-500 hover:border-gray-200'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-2">
+                  {lang === 'pt' ? 'Pagamento' : 'Payment'}
+                </label>
+                <select 
+                  className="w-full px-3 py-2 rounded-xl border border-gray-100 text-sm"
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
+                >
+                  <option value="Pronto Pagamento">{lang === 'pt' ? 'Pronto Pagamento' : 'Cash'}</option>
+                  <option value="Financiamento">{lang === 'pt' ? 'Financiamento' : 'Financing'}</option>
+                </select>
               </div>
             </div>
           </div>
@@ -208,7 +192,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
               rows={2}
               value={formData.message}
               onChange={(e) => setFormData({...formData, message: e.target.value})}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm"
             />
           </div>
 
