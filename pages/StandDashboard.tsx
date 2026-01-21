@@ -58,7 +58,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       if (leadsErr) throw leadsErr;
       
       setMyLeads(leadsData || []);
-      console.log(`📊 Dashboard atualizado. Encontrados ${leadsData?.length} leads para "${currentStandName}"`);
+      console.log(`📊 Dashboard: Encontrados ${leadsData?.length} leads para "${currentStandName}"`);
 
     } catch (e: any) {
       console.error("❌ Erro no Dashboard:", e.message);
@@ -87,18 +87,43 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Debug Panel (Opcional, ajuda a ver por que não aparece) */}
+        {/* Painel de Ajuda / Diagnóstico */}
         {showDebug && (
-          <div className="bg-black text-green-400 p-6 rounded-3xl font-mono text-[10px] space-y-1 shadow-2xl animate-in slide-in-from-top-4">
-            <div className="flex justify-between border-b border-green-900 pb-2 mb-2">
-              <span className="font-bold">MODO DIAGNÓSTICO</span>
-              <button onClick={() => setShowDebug(false)} className="text-white hover:text-red-500">[FECHAR]</button>
+          <div className="bg-indigo-900 text-white p-8 rounded-[40px] shadow-2xl animate-in slide-in-from-top-4 duration-300">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-xl font-black flex items-center gap-3">
+                  <i className="fas fa-stethoscope"></i> Centro de Diagnóstico
+                </h3>
+                <p className="text-indigo-200 text-sm mt-1">Verifique se as informações abaixo estão corretas para receber os seus leads.</p>
+              </div>
+              <button onClick={() => setShowDebug(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-all">
+                <i className="fas fa-times"></i>
+              </button>
             </div>
-            <p>> STAND_NAME_ATUAL: "{standName}"</p>
-            <p>> ROLE: {role}</p>
-            <p>> STATUS: {status}</p>
-            <p>> LEADS_COUNT: {myLeads.length}</p>
-            <p>> INFO: Certifique-se de que o nome do stand no anúncio é exatamente igual ao acima.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
+                <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">O Seu Nome de Stand:</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-lg font-bold">"{standName}"</span>
+                  <Link to="/cliente/editar" className="text-xs font-black text-indigo-400 hover:text-white underline">Alterar no Perfil</Link>
+                </div>
+                <p className="text-[10px] text-indigo-400 mt-4 leading-relaxed">
+                  *IMPORTANTE: Os seus anúncios devem ter exatamente este nome para que o sistema saiba que o lead lhe pertence.
+                </p>
+              </div>
+              <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
+                <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Estado da Tabela (Banco de Dados):</p>
+                <div className="flex items-center gap-3">
+                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                   <span className="font-bold">Conectado ao Supabase</span>
+                </div>
+                <p className="text-[10px] text-indigo-400 mt-4 leading-relaxed">
+                  Se enviou um lead e ele não aparece, tente clicar no botão "Sincronizar" (ícone de setas) no topo do dashboard.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -114,7 +139,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                 <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
                   {isApproved ? 'Conta Verificada' : 'Aguardando Aprovação'}
                 </p>
-                <button onClick={() => setShowDebug(!showDebug)} className="ml-4 text-[9px] text-gray-300 hover:text-blue-500 font-bold uppercase">Diagnóstico</button>
+                <button onClick={() => setShowDebug(!showDebug)} className="ml-4 text-[9px] text-indigo-500 hover:text-indigo-700 font-black uppercase tracking-widest border-b border-indigo-100 pb-0.5">Diagnóstico</button>
               </div>
             </div>
           </div>
@@ -122,6 +147,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
              <button 
                onClick={fetchStandData} 
                disabled={refreshing}
+               title="Sincronizar Dados"
                className={`w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all ${refreshing ? 'animate-spin' : 'hover:bg-blue-50'}`}
              >
                <i className="fas fa-sync-alt"></i>
@@ -138,7 +164,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           <div className="space-y-6">
             <div className="flex justify-between items-center px-4">
               <h2 className="text-2xl font-black text-gray-900">Pedidos de Contacto ({myLeads.length})</h2>
-              {refreshing && <span className="text-[10px] font-black text-blue-500 animate-pulse uppercase tracking-widest">Atualizando...</span>}
+              {refreshing && <span className="text-[10px] font-black text-blue-500 animate-pulse uppercase tracking-widest">A sincronizar...</span>}
             </div>
             
             {myLeads.length === 0 ? (
@@ -146,9 +172,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-200 text-3xl">
                   <i className="fas fa-ghost"></i>
                 </div>
-                <p className="text-gray-400 font-bold text-lg">Nenhum lead encontrado para "{standName}"</p>
-                <p className="text-gray-300 text-sm mt-2 max-w-sm mx-auto font-medium">
-                  Certifique-se de que os anúncios têm exatamente este nome de stand. Caso contrário, os leads não serão vinculados a esta conta.
+                <p className="text-gray-400 font-bold text-lg">Ainda sem leads para "{standName}"</p>
+                <p className="text-gray-300 text-sm mt-2 max-w-sm mx-auto font-medium leading-relaxed">
+                  Para testar, envie um formulário no BMW 320i. Se o seu stand não se chamar "Auto Premium Lisboa", o lead não aparecerá aqui. Use o botão <span className="text-indigo-600">Diagnóstico</span> acima para conferir.
                 </p>
               </div>
             ) : (
@@ -159,7 +185,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <span className="font-black text-xl text-gray-900">{lead.customer_name}</span>
-                          <span className="bg-green-100 text-green-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Pendente</span>
+                          <span className="bg-green-100 text-green-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Novo Lead</span>
                         </div>
                         <div className="flex flex-wrap gap-6 text-sm font-bold text-gray-500">
                            <span className="flex items-center gap-2"><i className="fas fa-phone text-blue-500"></i>{lead.customer_phone}</span>
@@ -168,14 +194,14 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right hidden md:block mr-4">
-                          <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Recebido em</p>
+                          <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Recebido</p>
                           <p className="text-sm font-bold text-gray-600">{new Date(lead.created_at).toLocaleDateString()}</p>
                         </div>
                         <button 
                           onClick={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}
                           className={`px-8 py-3 rounded-xl font-black text-xs transition-all ${expandedLead === lead.id ? 'bg-gray-100 text-gray-500' : 'bg-gray-900 text-white shadow-lg'}`}
                         >
-                          {expandedLead === lead.id ? 'Fechar' : 'Ver Mensagem'}
+                          {expandedLead === lead.id ? 'Ocultar' : 'Ver Detalhes'}
                         </button>
                       </div>
                     </div>
@@ -184,9 +210,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       <div className="mt-6 p-8 bg-blue-50/50 rounded-3xl border border-blue-100 animate-in slide-in-from-top-4 duration-300">
                         <div className="mb-6">
                           <p className="text-blue-900 font-black text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <i className="fas fa-comment-alt"></i> Mensagem do Cliente:
+                            <i className="fas fa-comment-alt"></i> Conteúdo da Mensagem:
                           </p>
-                          <p className="text-gray-700 whitespace-pre-line text-base leading-relaxed italic bg-white p-6 rounded-2xl shadow-sm">
+                          <p className="text-gray-700 whitespace-pre-line text-base leading-relaxed italic bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
                             "{lead.message}"
                           </p>
                         </div>
@@ -195,7 +221,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                              <i className="fab fa-whatsapp text-lg"></i> Responder via WhatsApp
                            </a>
                            <a href={`mailto:${lead.customer_email}`} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-3 shadow-lg hover:bg-blue-700 transition-all">
-                             <i className="fas fa-reply"></i> Responder via Email
+                             <i className="fas fa-reply"></i> Enviar E-mail
                            </a>
                         </div>
                       </div>
@@ -210,9 +236,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
               <i className="fas fa-user-clock"></i>
             </div>
-            <h2 className="text-3xl font-black text-amber-900">Perfil em Verificação</h2>
+            <h2 className="text-3xl font-black text-amber-900">Perfil em Aprovação</h2>
             <p className="text-amber-700 mt-4 max-w-md mx-auto font-medium">
-              A nossa equipa está a analisar os dados do seu stand. Receberá acesso aos leads assim que for aprovado.
+              A nossa equipa está a validar os seus documentos. Assim que o perfil for aprovado, poderá gerir viaturas e leads.
             </p>
           </div>
         )}
