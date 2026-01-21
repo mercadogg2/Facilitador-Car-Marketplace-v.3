@@ -30,17 +30,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      const localSession = localStorage.getItem('fc_session');
-      
-      const isAdmin = role === UserRole.ADMIN || 
-                      session?.user?.email === 'admin@facilitadorcar.pt' || 
-                      (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
+      const isAdmin = role === UserRole.ADMIN || session?.user?.email === 'admin@facilitadorcar.pt';
 
       if (!isAdmin) {
         navigate('/admin/login');
         return;
       }
-
       fetchPlatformData();
     };
     checkAuth();
@@ -49,52 +44,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const fetchPlatformData = async () => {
     setLoading(true);
     try {
-      console.log("Sincronizando dados com Supabase...");
+      console.log("Admin: Sincronizando dados...");
       
-      const [userRes, leadsRes, carsRes] = await Promise.all([
+      // Busca paralela para velocidade
+      const [profilesRes, adsRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        // Tentamos carregar leads com relação 'cars' ou 'car' dependendo do schema configurado
-        supabase.from('leads').select('*, cars(id, brand, model, image, stand_name)').order('created_at', { ascending: false }),
         supabase.from('cars').select('*').order('created_at', { ascending: false })
       ]);
 
-      if (userRes.data) setUsers(userRes.data);
-      if (carsRes.data) setAds(carsRes.data);
-      
-      if (leadsRes.data) {
-        console.log("Leads encontrados:", leadsRes.data.length);
-        setLeads(leadsRes.data as any);
-      } else if (leadsRes.error) {
-        console.error("Erro ao buscar leads:", leadsRes.error);
-        // Fallback simples caso o join falhe por nome de tabela/relação
+      // Busca de leads separada com lógica de fallback
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*, cars(id, brand, model, image, stand_name)')
+        .order('created_at', { ascending: false });
+
+      if (leadsError) {
+        console.warn("Erro ao buscar leads com JOIN, tentando busca simples:", leadsError);
         const { data: simpleLeads } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
         if (simpleLeads) setLeads(simpleLeads as any);
+      } else if (leadsData) {
+        setLeads(leadsData as any);
       }
 
+      if (profilesRes.data) setUsers(profilesRes.data);
+      if (adsRes.data) setAds(adsRes.data);
+
     } catch (err: any) {
-      console.error("Falha na sincronização:", err.message);
+      console.error("Falha Admin Fetch:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
-    if (actionId) return;
     setActionId(userId);
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus })
-        .eq('id', userId);
-
+      const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
       if (error) throw error;
-
-      setUsers(current => 
-        current.map(u => u.id === userId ? { ...u, status: newStatus } : u)
-      );
+      setUsers(current => current.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } catch (err: any) {
-      alert(`Erro ao salvar status: ${err.message}`);
+      alert(`Erro: ${err.message}`);
     } finally {
       setActionId(null);
     }
@@ -107,7 +96,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       if (error) throw error;
       setAds(prev => prev.map(a => a.id === adId ? { ...a, verified } : a));
     } catch (err: any) {
-      alert(`Erro no anúncio: ${err.message}`);
+      alert(`Erro: ${err.message}`);
     } finally {
       setActionId(null);
     }
@@ -120,7 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       if (error) throw error;
       setAds(prev => prev.filter(a => a.id !== id));
     } catch (err: any) {
-      alert(`Erro ao eliminar: ${err.message}`);
+      alert(`Erro: ${err.message}`);
     }
   };
 
@@ -154,10 +143,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-slate-400 font-bold animate-pulse">Sincronizando Plataforma...</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -168,7 +154,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">Admin Central</h1>
-            <p className="text-slate-500 font-medium">Controlo total do marketplace Facilitador Car</p>
+            <p className="text-slate-500 font-medium">Marketplace Facilitador Car</p>
           </div>
           <nav className="flex bg-white p-2 rounded-[25px] shadow-sm border border-slate-100 overflow-x-auto no-scrollbar">
             {[
@@ -197,7 +183,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               { label: 'Utilizadores', value: users.length, icon: 'fa-user-friends', color: 'bg-indigo-50 text-indigo-600' },
               { label: 'Anúncios', value: ads.length, icon: 'fa-car-side', color: 'bg-blue-50 text-blue-600' },
               { label: 'Leads Totais', value: leads.length, icon: 'fa-bolt', color: 'bg-amber-50 text-amber-600' },
-              { label: 'Stands Pendentes', value: users.filter(u => u.status === 'pending' && u.role === UserRole.STAND).length, icon: 'fa-clock', color: 'bg-red-50 text-red-600' }
+              { label: 'Pendentes', value: users.filter(u => u.status === 'pending').length, icon: 'fa-clock', color: 'bg-red-50 text-red-600' }
             ].map((stat, i) => (
               <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
                 <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center mb-4 text-xl`}>
@@ -213,11 +199,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'users' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
              <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-              <h3 className="text-2xl font-black text-slate-900">Gestão de Perfis</h3>
+              <h3 className="text-2xl font-black text-slate-900">Utilizadores</h3>
               <input 
                 type="text" 
-                placeholder="Nome, email ou stand..." 
-                className="px-6 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-80 text-sm font-bold"
+                placeholder="Pesquisar..." 
+                className="px-6 py-3 rounded-2xl bg-slate-50 outline-none w-full md:w-80 text-sm font-bold"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
               />
@@ -227,38 +213,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
                   <tr>
                     <th className="px-8 py-5">Perfil</th>
-                    <th className="px-8 py-5">Tipo</th>
                     <th className="px-8 py-5">Estado</th>
                     <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredUsers.length === 0 ? (
-                    <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400">Nenhum registo encontrado.</td></tr>
-                  ) : filteredUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-slate-50/20 transition-colors">
+                  {filteredUsers.map(u => (
+                    <tr key={u.id}>
                       <td className="px-8 py-6">
-                        <div className="font-bold text-slate-900">{u.full_name || 'Utilizador sem nome'}</div>
-                        <div className="text-xs text-slate-400">{u.email}</div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className={`text-[10px] font-black uppercase px-2 py-1 rounded inline-block mb-1 ${u.role === UserRole.STAND ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                          {u.role === UserRole.STAND ? 'Profissional' : 'Particular'}
-                        </div>
-                        {u.stand_name && <div className="text-xs font-bold text-slate-900">{u.stand_name}</div>}
+                        <div className="font-bold text-slate-900">{u.full_name || 'Sem nome'}</div>
+                        <div className="text-xs text-slate-400">{u.email} ({u.role})</div>
                       </td>
                       <td className="px-8 py-6">
                         <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full ${
-                          u.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                          u.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                          u.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {u.status === 'approved' ? 'Aprovado' : u.status === 'rejected' ? 'Rejeitado' : 'Pendente'}
+                          {u.status}
                         </span>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-9 h-9 bg-green-50 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all"><i className="fas fa-check"></i></button>
-                          <button onClick={() => handleUpdateUserStatus(u.id, 'rejected')} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-times"></i></button>
+                          <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-9 h-9 bg-green-50 text-green-600 rounded-lg"><i className="fas fa-check"></i></button>
+                          <button onClick={() => handleUpdateUserStatus(u.id, 'rejected')} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg"><i className="fas fa-times"></i></button>
                         </div>
                       </td>
                     </tr>
@@ -272,50 +248,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'ads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
              <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-              <h3 className="text-2xl font-black text-slate-900">Inventário Global</h3>
+              <h3 className="text-2xl font-black text-slate-900">Anúncios</h3>
               <input 
                 type="text" 
-                placeholder="Marca, modelo ou stand..." 
-                className="px-6 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-80 text-sm font-bold"
+                placeholder="Pesquisar..." 
+                className="px-6 py-3 rounded-2xl bg-slate-50 outline-none w-full md:w-80 text-sm font-bold"
                 value={adSearch}
                 onChange={(e) => setAdSearch(e.target.value)}
               />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
-                  <tr>
-                    <th className="px-8 py-5">Veículo</th>
-                    <th className="px-8 py-5">Vendedor</th>
-                    <th className="px-8 py-5">Estado</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
-                  </tr>
-                </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredAds.map(a => (
-                    <tr key={a.id} className="hover:bg-slate-50/20 transition-colors">
+                    <tr key={a.id}>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
                           <img src={a.image} className="w-12 h-12 rounded-xl object-cover" alt="" />
                           <div>
                             <div className="font-bold text-slate-900">{a.brand} {a.model}</div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase">{a.year} • {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(a.price)}</div>
+                            <div className="text-[10px] text-slate-400 uppercase">{a.year} • {a.stand_name}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <div className="text-sm font-bold text-slate-900">{a.stand_name}</div>
-                        <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{a.location}</div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <button onClick={() => handleVerifyAd(a.id, !a.verified)} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${a.verified ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                          {a.verified ? 'Verificado' : 'Pendente'}
-                        </button>
-                      </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => navigate(`/veiculos/${a.id}`)} className="w-9 h-9 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><i className="fas fa-eye"></i></button>
-                           <button onClick={() => handleDeleteAd(a.id)} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash-alt"></i></button>
+                           <button onClick={() => handleVerifyAd(a.id, !a.verified)} className={`px-4 py-2 rounded-xl text-xs font-black ${a.verified ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                             {a.verified ? 'Verificado' : 'Verificar'}
+                           </button>
+                           <button onClick={() => handleDeleteAd(a.id)} className="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash-alt"></i></button>
                         </div>
                       </td>
                     </tr>
@@ -337,8 +298,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               </div>
               <input 
                 type="text" 
-                placeholder="Nome, e-mail ou telefone..." 
-                className="px-6 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-80 text-sm font-bold"
+                placeholder="Pesquisar..." 
+                className="px-6 py-3 rounded-2xl bg-slate-50 outline-none w-full md:w-80 text-sm font-bold"
                 value={leadSearch}
                 onChange={(e) => setLeadSearch(e.target.value)}
               />
@@ -348,79 +309,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
                   <tr>
                     <th className="px-8 py-5">Cliente</th>
-                    <th className="px-8 py-5">Contactos</th>
-                    <th className="px-8 py-5">Interesse / Stand</th>
+                    <th className="px-8 py-5">Veículo / Stand</th>
                     <th className="px-8 py-5">Data</th>
                     <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredLeads.length === 0 ? (
-                    <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado até ao momento.</td></tr>
+                    <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400">Nenhum lead encontrado.</td></tr>
                   ) : filteredLeads.map(l => {
-                    // Normalização do objeto do carro retornado pelo join
-                    const carData = l.cars || l.car;
+                    const carData = (l as any).cars || (l as any).car;
                     return (
                       <React.Fragment key={l.id}>
                         <tr className="hover:bg-slate-50/20 transition-colors">
                           <td className="px-8 py-6">
                             <div className="font-bold text-slate-900">{l.customer_name}</div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">Ref: {l.id.slice(0,8)}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase">{l.customer_email} • {l.customer_phone}</div>
                           </td>
                           <td className="px-8 py-6">
-                            <div className="space-y-1">
-                              <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                <i className="fas fa-envelope text-slate-300 w-4"></i> {l.customer_email}
-                              </div>
-                              <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                <i className="fas fa-phone text-slate-300 w-4"></i> {l.customer_phone}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                              { carData?.image && (
-                                <img src={carData.image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
-                              )}
-                              <div>
-                                <div className="text-sm font-bold text-slate-900">{carData?.brand || 'Viatura'} {carData?.model || 'Desconhecida'}</div>
-                                <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {carData?.stand_name || 'Particular'}</div>
-                              </div>
-                            </div>
+                             {carData ? (
+                               <div className="flex items-center gap-3">
+                                  <img src={carData.image} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                                  <div>
+                                    <div className="text-sm font-bold text-slate-900">{carData.brand} {carData.model}</div>
+                                    <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">{carData.stand_name}</div>
+                                  </div>
+                               </div>
+                             ) : (
+                               <span className="text-slate-300 italic text-xs">Viatura ID: {l.car_id}</span>
+                             )}
                           </td>
                           <td className="px-8 py-6">
                             <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
-                            <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                           </td>
                           <td className="px-8 py-6 text-right">
                             <button 
                               onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)}
-                              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                expandedLead === l.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                              }`}
+                              className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold"
                             >
-                              {expandedLead === l.id ? 'Fechar' : 'Ver Detalhes'}
+                              {expandedLead === l.id ? 'Fechar' : 'Ver Mensagem'}
                             </button>
                           </td>
                         </tr>
                         {expandedLead === l.id && (
                           <tr className="bg-slate-50/50">
-                            <td colSpan={5} className="px-8 py-6">
-                              <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-in slide-in-from-top-2">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
-                                  <i className="fas fa-comment-dots"></i> Detalhes Completos da Solicitação
-                                </h4>
-                                <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed whitespace-pre-line font-medium italic">
-                                  "{l.message}"
-                                </div>
-                                <div className="mt-6 pt-6 border-t border-slate-50 flex gap-4">
-                                  <a href={`mailto:${l.customer_email}`} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all">
-                                    Responder por E-mail
-                                  </a>
-                                  <a href={`tel:${l.customer_phone}`} className="px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-bold hover:bg-green-100 transition-all">
-                                    Ligar para Cliente
-                                  </a>
-                                </div>
+                            <td colSpan={4} className="px-8 py-6">
+                              <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                  {l.message}
+                                </p>
                               </div>
                             </td>
                           </tr>

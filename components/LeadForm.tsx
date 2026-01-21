@@ -27,30 +27,33 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Estruturação da mensagem completa para salvar todos os dados do formulário
     const fullMessage = `${formData.message}\n\n` +
       (lang === 'pt' 
-        ? `--- DADOS DO FORMULÁRIO ---\nPreferência de Contacto: ${formData.contactPreference}\nMétodo de Pagamento: ${formData.paymentMethod}\nOrigem: Marketplace Web`
-        : `--- FORM DATA ---\nContact Preference: ${formData.contactPreference}\nPayment Method: ${formData.paymentMethod}\nSource: Web Marketplace`);
+        ? `DETALHES DO CLIENTE:\n- Preferência: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
+        : `CUSTOMER DETAILS:\n- Preference: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
     try {
-      console.log("Iniciando gravação de lead para car_id:", car.id);
-      
-      const { data, error } = await supabase.from('leads').insert([{
-        car_id: car.id,
-        customer_name: formData.name,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        message: fullMessage,
-        status: 'Pendente'
-      }]).select();
+      console.log("Tentando gravar lead para o carro ID:", car.id);
+
+      // Inserção explícita na tabela 'leads'
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([{
+          car_id: car.id,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          customer_phone: formData.phone,
+          message: fullMessage,
+          status: 'Pendente'
+        }])
+        .select();
 
       if (error) {
-        console.error("Erro Supabase:", error);
+        console.error("Erro retornado pelo Supabase:", error);
         throw error;
       }
 
-      console.log("Lead gravado com sucesso no BD:", data);
+      console.log("Lead gravado com sucesso:", data);
       setIsSuccess(true);
       
       // Fecha o modal após 3 segundos
@@ -59,10 +62,10 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
       }, 3000);
 
     } catch (err: any) {
-      console.error("Erro crítico ao salvar lead:", err);
+      console.error("Erro crítico ao submeter formulário:", err);
       alert(lang === 'pt' 
-        ? `Não foi possível guardar o seu interesse: ${err.message || 'Erro de conexão'}` 
-        : `Could not save your interest: ${err.message || 'Connection error'}`);
+        ? `Erro ao enviar: ${err.message || 'Verifique as permissões da tabela leads no Supabase.'}` 
+        : `Error: ${err.message || 'Check leads table permissions in Supabase.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -76,12 +79,12 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">
-            {lang === 'pt' ? 'Pedido Registado!' : 'Request Registered!'}
+            {lang === 'pt' ? 'Interesse Registado!' : 'Interest Registered!'}
           </h2>
           <p className="text-gray-500 font-medium">
             {lang === 'pt' 
-              ? 'O seu interesse foi guardado no nosso sistema. O vendedor entrará em contacto em breve.' 
-              : 'Your interest has been saved in our system. The seller will contact you shortly.'}
+              ? 'O vendedor foi notificado e entrará em contacto brevemente.' 
+              : 'The seller has been notified and will contact you shortly.'}
           </p>
           <button 
             onClick={onClose}
@@ -117,7 +120,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               placeholder="Ex: João Silva"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             />
           </div>
           
@@ -130,7 +133,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
                 placeholder="email@exemplo.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
             <div>
@@ -141,7 +144,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
                 value={formData.phone}
                 onChange={(e) => setFormData({...formData, phone: e.target.value})}
                 placeholder="+351 900 000 000"
-                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
           </div>
@@ -201,14 +204,14 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
               rows={2}
               value={formData.message}
               onChange={(e) => setFormData({...formData, message: e.target.value})}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
             />
           </div>
 
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
           >
             {isSubmitting ? (
               <i className="fas fa-circle-notch animate-spin"></i>
