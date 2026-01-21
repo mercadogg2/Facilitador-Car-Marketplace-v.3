@@ -31,7 +31,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       const { data: { session } } = await supabase.auth.getSession();
       const localSession = localStorage.getItem('fc_session');
       
-      // Verifica se é admin pelo Supabase ou pelo fallback local
       const isAdmin = role === UserRole.ADMIN || 
                       session?.user?.email === 'admin@facilitadorcar.pt' || 
                       (localSession && JSON.parse(localSession).role === UserRole.ADMIN);
@@ -67,50 +66,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
-    // Bloquear interações múltiplas enquanto processa
     if (actionId) return;
     setActionId(userId);
 
     try {
-      // 1. Verificar se existe sessão ativa para garantir permissões RLS
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session && !localStorage.getItem('fc_session')) {
-        alert("Sessão expirada. Por favor, faça login novamente.");
-        navigate('/admin/login');
-        return;
-      }
-
-      // 2. Executar o UPDATE no banco de dados
-      // Importante: newStatus deve ser 'approved', 'rejected' ou 'pending'
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({ status: newStatus })
-        .eq('id', userId)
-        .select();
+        .eq('id', userId);
 
-      if (error) {
-        console.error("Erro Supabase na persistência:", error);
-        
-        // Se o erro for de cache de schema, sugerimos o reload forçado
-        if (error.message.includes("schema cache")) {
-          alert("O Supabase ainda não reconheceu a nova coluna. Por favor, execute 'NOTIFY pgrst, 'reload schema';' no seu SQL Editor e recarregue esta página.");
-        } else {
-          alert(`Erro ao salvar no banco: ${error.message}`);
-        }
-        return;
-      }
+      if (error) throw error;
 
-      // 3. APENAS APÓS SUCESSO NO DB: Atualizar o estado da UI
       setUsers(current => 
         current.map(u => u.id === userId ? { ...u, status: newStatus } : u)
       );
-      
-      console.log(`Utilizador ${userId} atualizado para ${newStatus} com sucesso.`);
-
     } catch (err: any) {
-      console.error("Exceção crítica:", err);
-      alert("Erro de conexão com o servidor. Verifique a sua internet.");
+      alert(`Erro ao salvar no banco: ${err.message}`);
     } finally {
       setActionId(null);
     }
@@ -140,6 +111,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${label} copiado!`);
+  };
+
   const filteredUsers = useMemo(() => 
     users.filter(u => {
       const search = userSearch.toLowerCase();
@@ -162,7 +138,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     leads.filter(l => {
       const search = leadSearch.toLowerCase();
       return (l.customer_name || '').toLowerCase().includes(search) || 
-             (l.customer_email || '').toLowerCase().includes(search);
+             (l.customer_email || '').toLowerCase().includes(search) ||
+             (l.customer_phone || '').toLowerCase().includes(search);
     }),
   [leads, leadSearch]);
 
@@ -278,9 +255,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                               u.status === 'approved' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'
                             }`}
-                            title="Aprovar utilizador"
                           >
-                            {actionId === u.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-check"></i>}
+                            <i className="fas fa-check"></i>
                           </button>
                           <button 
                             disabled={actionId === u.id}
@@ -288,9 +264,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                               u.status === 'rejected' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
                             }`}
-                            title="Rejeitar utilizador"
                           >
-                            {actionId === u.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-times"></i>}
+                            <i className="fas fa-times"></i>
                           </button>
                         </div>
                       </td>
@@ -376,7 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               <h3 className="text-2xl font-black text-slate-900">Fluxo de Leads</h3>
               <input 
                 type="text" 
-                placeholder="Pesquisar cliente..." 
+                placeholder="Nome, e-mail ou telefone..." 
                 className="px-6 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-80 text-sm font-bold"
                 value={leadSearch}
                 onChange={(e) => setLeadSearch(e.target.value)}
@@ -387,25 +362,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
                   <tr>
                     <th className="px-8 py-5">Cliente</th>
+                    <th className="px-8 py-5">Dados de Contacto</th>
                     <th className="px-8 py-5">Interesse / Stand</th>
                     <th className="px-8 py-5">Data</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredLeads.length === 0 ? (
-                    <tr><td colSpan={3} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado.</td></tr>
+                    <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado.</td></tr>
                   ) : filteredLeads.map(l => (
                     <tr key={l.id} className="hover:bg-slate-50/20 transition-colors">
                       <td className="px-8 py-6">
                         <div className="font-bold text-slate-900">{l.customer_name}</div>
-                        <div className="text-xs text-slate-400">{l.customer_email} • {l.customer_phone}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
                       </td>
                       <td className="px-8 py-6">
-                        <div className="text-sm font-bold text-slate-900">{(l.cars as any)?.brand} {(l.cars as any)?.model}</div>
-                        <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {(l.cars as any)?.stand_name}</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3 group">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                              <i className="fas fa-envelope"></i>
+                            </div>
+                            <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
+                            <button 
+                              onClick={() => copyToClipboard(l.customer_email, 'E-mail')}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 hover:underline font-bold transition-opacity"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-3 group">
+                            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
+                              <i className="fas fa-phone"></i>
+                            </div>
+                            <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
+                            <button 
+                              onClick={() => copyToClipboard(l.customer_phone, 'Telefone')}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-green-500 hover:underline font-bold transition-opacity"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-8 py-6">
-                        <div className="text-xs text-slate-400">{new Date(l.created_at).toLocaleDateString()}</div>
+                        <div className="flex items-center gap-4">
+                          { (l.cars as any)?.image && (
+                            <img src={(l.cars as any).image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
+                          )}
+                          <div>
+                            <div className="text-sm font-bold text-slate-900">{(l.cars as any)?.brand} {(l.cars as any)?.model}</div>
+                            <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {(l.cars as any)?.stand_name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
+                        <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                       </td>
                     </tr>
                   ))}

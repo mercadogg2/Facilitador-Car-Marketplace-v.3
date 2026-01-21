@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserRole, Language } from './types';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -28,6 +28,19 @@ import StandDetail from './pages/StandDetail';
 import StandsList from './pages/StandsList';
 import { supabase } from './lib/supabase';
 
+// Componente para forçar scroll ao topo em cada mudança de rota
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'smooth'
+    });
+  }, [pathname]);
+  return null;
+};
+
 const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('pt');
   const [role, setRole] = useState<UserRole>(UserRole.VISITOR);
@@ -37,12 +50,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      // 1. Verificar sessão real Supabase
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
-          // Especial para admin@facilitadorcar.pt
           const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
           
           setRole(finalRole);
@@ -54,7 +65,6 @@ const App: React.FC = () => {
         console.warn("Supabase session check failed.");
       }
 
-      // 2. Fallback para sessão mock local
       const localSession = localStorage.getItem('fc_session');
       if (localSession) {
         try {
@@ -97,7 +107,6 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // A limpeza forçada via recarregamento é a única forma de garantir 100% de sucesso
     localStorage.clear();
     sessionStorage.clear();
     
@@ -107,7 +116,6 @@ const App: React.FC = () => {
       console.error("Erro ao fazer signOut:", e);
     }
 
-    // Redireciona e recarrega para limpar o estado do React
     window.location.href = '/#/';
     window.location.reload();
   };
@@ -122,6 +130,7 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
+      <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Navbar 
           lang={language} 
