@@ -33,10 +33,11 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         : `CUSTOMER DETAILS:\n- Preference: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
     try {
-      console.log("Tentando gravar lead para o carro ID:", car.id);
+      console.log("A enviar lead para processamento...");
 
-      // Inserção explícita na tabela 'leads'
-      const { data, error } = await supabase
+      // REMOVIDO .select() - Isso evita que o Supabase tente ler a linha recém-criada,
+      // o que dispararia um erro de RLS de SELECT (leitura) em vez de apenas INSERT (escrita).
+      const { error } = await supabase
         .from('leads')
         .insert([{
           car_id: car.id,
@@ -45,27 +46,30 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
           customer_phone: formData.phone,
           message: fullMessage,
           status: 'Pendente'
-        }])
-        .select();
+        }]);
 
       if (error) {
-        console.error("Erro retornado pelo Supabase:", error);
+        console.error("Erro Supabase:", error);
+        
+        // Se for erro de RLS, dar uma dica direta
+        if (error.message.includes('row-level security')) {
+          throw new Error(lang === 'pt' 
+            ? "O banco de dados está a bloquear o envio. Por favor, execute o comando SQL de permissão no painel do Supabase (detalhes no console)." 
+            : "Database is blocking the request. Please enable INSERT policy for 'anon' role in Supabase leads table.");
+        }
         throw error;
       }
 
-      console.log("Lead gravado com sucesso:", data);
+      console.log("Lead registado com sucesso!");
       setIsSuccess(true);
       
-      // Fecha o modal após 3 segundos
       setTimeout(() => {
         onClose();
       }, 3000);
 
     } catch (err: any) {
-      console.error("Erro crítico ao submeter formulário:", err);
-      alert(lang === 'pt' 
-        ? `Erro ao enviar: ${err.message || 'Verifique as permissões da tabela leads no Supabase.'}` 
-        : `Error: ${err.message || 'Check leads table permissions in Supabase.'}`);
+      console.error("Erro na submissão:", err);
+      alert(err.message || (lang === 'pt' ? "Erro ao enviar pedido." : "Error sending request."));
     } finally {
       setIsSubmitting(false);
     }
@@ -79,12 +83,12 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">
-            {lang === 'pt' ? 'Interesse Registado!' : 'Interest Registered!'}
+            {lang === 'pt' ? 'Mensagem Enviada!' : 'Message Sent!'}
           </h2>
           <p className="text-gray-500 font-medium">
             {lang === 'pt' 
-              ? 'O vendedor foi notificado e entrará em contacto brevemente.' 
-              : 'The seller has been notified and will contact you shortly.'}
+              ? 'Obrigado! O stand entrará em contacto consigo muito em breve.' 
+              : 'Thank you! The dealer will contact you very shortly.'}
           </p>
           <button 
             onClick={onClose}
