@@ -52,6 +52,7 @@ export interface Lead {
   status: 'Pendente' | 'Contactado' | 'Vendido' | 'Cancelado';
   created_at: string;
   car?: Car;
+  cars?: Car; // Suporte para plural/singular retornado pelo Supabase
 }
 
 export interface BlogPost {

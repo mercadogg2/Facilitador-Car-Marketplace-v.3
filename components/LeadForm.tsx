@@ -27,13 +27,14 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Estruturação da mensagem completa para salvar todos os dados do formulário
     const fullMessage = `${formData.message}\n\n` +
       (lang === 'pt' 
-        ? `DETALHES DO PEDIDO:\n- Preferência: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
-        : `ORDER DETAILS:\n- Preference: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
+        ? `--- DADOS DO FORMULÁRIO ---\nPreferência de Contacto: ${formData.contactPreference}\nMétodo de Pagamento: ${formData.paymentMethod}\nOrigem: Marketplace Web`
+        : `--- FORM DATA ---\nContact Preference: ${formData.contactPreference}\nPayment Method: ${formData.paymentMethod}\nSource: Web Marketplace`);
 
     try {
-      console.log("A enviar lead para o Supabase...", { car_id: car.id, name: formData.name });
+      console.log("Iniciando gravação de lead para car_id:", car.id);
       
       const { data, error } = await supabase.from('leads').insert([{
         car_id: car.id,
@@ -45,22 +46,23 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
       }]).select();
 
       if (error) {
-        console.error("Erro detalhado do Supabase:", error);
+        console.error("Erro Supabase:", error);
         throw error;
       }
 
-      console.log("Lead gravado com sucesso:", data);
+      console.log("Lead gravado com sucesso no BD:", data);
       setIsSuccess(true);
       
+      // Fecha o modal após 3 segundos
       setTimeout(() => {
         onClose();
       }, 3000);
 
     } catch (err: any) {
-      console.error("Erro completo ao guardar lead:", err);
+      console.error("Erro crítico ao salvar lead:", err);
       alert(lang === 'pt' 
-        ? `Erro ao enviar pedido: ${err.message || 'Verifique se a tabela leads existe no seu Supabase.'}` 
-        : `Error sending request: ${err.message || 'Check if the leads table exists in your Supabase.'}`);
+        ? `Não foi possível guardar o seu interesse: ${err.message || 'Erro de conexão'}` 
+        : `Could not save your interest: ${err.message || 'Connection error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -74,12 +76,12 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">
-            {lang === 'pt' ? 'Pedido Recebido!' : 'Request Received!'}
+            {lang === 'pt' ? 'Pedido Registado!' : 'Request Registered!'}
           </h2>
           <p className="text-gray-500 font-medium">
             {lang === 'pt' 
-              ? 'O seu interesse foi registado no sistema. O vendedor entrará em contacto em breve.' 
-              : 'Your interest has been registered. The seller will contact you shortly.'}
+              ? 'O seu interesse foi guardado no nosso sistema. O vendedor entrará em contacto em breve.' 
+              : 'Your interest has been saved in our system. The seller will contact you shortly.'}
           </p>
           <button 
             onClick={onClose}

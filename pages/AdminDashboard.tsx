@@ -49,10 +49,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const fetchPlatformData = async () => {
     setLoading(true);
     try {
-      console.log("A carregar dados globais para Admin...");
+      console.log("Sincronizando dados com Supabase...");
       
       const [userRes, leadsRes, carsRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        // Tentamos carregar leads com relação 'cars' ou 'car' dependendo do schema configurado
         supabase.from('leads').select('*, cars(id, brand, model, image, stand_name)').order('created_at', { ascending: false }),
         supabase.from('cars').select('*').order('created_at', { ascending: false })
       ]);
@@ -61,14 +62,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       if (carsRes.data) setAds(carsRes.data);
       
       if (leadsRes.data) {
-        console.log("Leads carregados:", leadsRes.data.length);
+        console.log("Leads encontrados:", leadsRes.data.length);
         setLeads(leadsRes.data as any);
       } else if (leadsRes.error) {
         console.error("Erro ao buscar leads:", leadsRes.error);
+        // Fallback simples caso o join falhe por nome de tabela/relação
+        const { data: simpleLeads } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+        if (simpleLeads) setLeads(simpleLeads as any);
       }
 
     } catch (err: any) {
-      console.error("Erro fatal ao carregar dados:", err.message);
+      console.error("Falha na sincronização:", err.message);
     } finally {
       setLoading(false);
     }
@@ -90,7 +94,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         current.map(u => u.id === userId ? { ...u, status: newStatus } : u)
       );
     } catch (err: any) {
-      alert(`Erro ao salvar no banco: ${err.message}`);
+      alert(`Erro ao salvar status: ${err.message}`);
     } finally {
       setActionId(null);
     }
@@ -118,11 +122,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     } catch (err: any) {
       alert(`Erro ao eliminar: ${err.message}`);
     }
-  };
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    alert(`${label} copiado!`);
   };
 
   const filteredUsers = useMemo(() => 
@@ -211,10 +210,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {/* ... (Users and Ads sections remain the same) */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
-            <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+             <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
               <h3 className="text-2xl font-black text-slate-900">Gestão de Perfis</h3>
               <input 
                 type="text" 
@@ -259,24 +257,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                          <button 
-                            disabled={actionId === u.id}
-                            onClick={() => handleUpdateUserStatus(u.id, 'approved')} 
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                              u.status === 'approved' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'
-                            }`}
-                          >
-                            <i className="fas fa-check"></i>
-                          </button>
-                          <button 
-                            disabled={actionId === u.id}
-                            onClick={() => handleUpdateUserStatus(u.id, 'rejected')} 
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                              u.status === 'rejected' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
-                            }`}
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
+                          <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-9 h-9 bg-green-50 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all"><i className="fas fa-check"></i></button>
+                          <button onClick={() => handleUpdateUserStatus(u.id, 'rejected')} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-times"></i></button>
                         </div>
                       </td>
                     </tr>
@@ -310,9 +292,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredAds.length === 0 ? (
-                    <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-400">Nenhum anúncio encontrado.</td></tr>
-                  ) : filteredAds.map(a => (
+                  {filteredAds.map(a => (
                     <tr key={a.id} className="hover:bg-slate-50/20 transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
@@ -328,23 +308,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{a.location}</div>
                       </td>
                       <td className="px-8 py-6">
-                        <button 
-                          onClick={() => handleVerifyAd(a.id, !a.verified)}
-                          className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full transition-all ${
-                            a.verified ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                          }`}
-                        >
+                        <button onClick={() => handleVerifyAd(a.id, !a.verified)} className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${a.verified ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                           {a.verified ? 'Verificado' : 'Pendente'}
                         </button>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => navigate(`/veiculos/${a.id}`)} className="w-9 h-9 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all">
-                            <i className="fas fa-eye"></i>
-                          </button>
-                          <button onClick={() => handleDeleteAd(a.id)} className="w-9 h-9 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all">
-                            <i className="fas fa-trash-alt"></i>
-                          </button>
+                           <button onClick={() => navigate(`/veiculos/${a.id}`)} className="w-9 h-9 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><i className="fas fa-eye"></i></button>
+                           <button onClick={() => handleDeleteAd(a.id)} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash-alt"></i></button>
                         </div>
                       </td>
                     </tr>
@@ -358,9 +329,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
              <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <h3 className="text-2xl font-black text-slate-900">Fluxo de Leads</h3>
-                <button onClick={fetchPlatformData} className="text-xs text-indigo-500 hover:underline font-bold">Atualizar</button>
+                <button onClick={fetchPlatformData} className="text-xs font-black uppercase text-indigo-600 hover:underline">
+                  <i className="fas fa-sync-alt mr-1"></i> Sincronizar
+                </button>
               </div>
               <input 
                 type="text" 
@@ -375,7 +348,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
                   <tr>
                     <th className="px-8 py-5">Cliente</th>
-                    <th className="px-8 py-5">Dados de Contacto</th>
+                    <th className="px-8 py-5">Contactos</th>
                     <th className="px-8 py-5">Interesse / Stand</th>
                     <th className="px-8 py-5">Data</th>
                     <th className="px-8 py-5 text-right">Ações</th>
@@ -385,27 +358,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   {filteredLeads.length === 0 ? (
                     <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado até ao momento.</td></tr>
                   ) : filteredLeads.map(l => {
-                    const carData = (l as any).cars || (l as any).car; // Suporta singular ou plural
+                    // Normalização do objeto do carro retornado pelo join
+                    const carData = l.cars || l.car;
                     return (
                       <React.Fragment key={l.id}>
                         <tr className="hover:bg-slate-50/20 transition-colors">
                           <td className="px-8 py-6">
                             <div className="font-bold text-slate-900">{l.customer_name}</div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">Ref: {l.id.slice(0,8)}</div>
                           </td>
                           <td className="px-8 py-6">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-3 group">
-                                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
-                                  <i className="fas fa-envelope"></i>
-                                </div>
-                                <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                <i className="fas fa-envelope text-slate-300 w-4"></i> {l.customer_email}
                               </div>
-                              <div className="flex items-center gap-3 group">
-                                <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
-                                  <i className="fas fa-phone"></i>
-                                </div>
-                                <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
+                              <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                <i className="fas fa-phone text-slate-300 w-4"></i> {l.customer_phone}
                               </div>
                             </div>
                           </td>
@@ -416,7 +384,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                               )}
                               <div>
                                 <div className="text-sm font-bold text-slate-900">{carData?.brand || 'Viatura'} {carData?.model || 'Desconhecida'}</div>
-                                <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {carData?.stand_name || 'Vendedor Directo'}</div>
+                                <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {carData?.stand_name || 'Particular'}</div>
                               </div>
                             </div>
                           </td>
@@ -436,13 +404,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                           </td>
                         </tr>
                         {expandedLead === l.id && (
-                          <tr>
-                            <td colSpan={5} className="px-8 py-0">
-                              <div className="bg-slate-50/50 rounded-2xl p-6 mb-4 animate-in slide-in-from-top-2">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-3">Conteúdo da Mensagem e Preferências</h4>
-                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium italic bg-white p-4 rounded-xl border border-slate-100">
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={5} className="px-8 py-6">
+                              <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-in slide-in-from-top-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
+                                  <i className="fas fa-comment-dots"></i> Detalhes Completos da Solicitação
+                                </h4>
+                                <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed whitespace-pre-line font-medium italic">
                                   "{l.message}"
-                                </p>
+                                </div>
+                                <div className="mt-6 pt-6 border-t border-slate-50 flex gap-4">
+                                  <a href={`mailto:${l.customer_email}`} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all">
+                                    Responder por E-mail
+                                  </a>
+                                  <a href={`tel:${l.customer_phone}`} className="px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-bold hover:bg-green-100 transition-all">
+                                    Ligar para Cliente
+                                  </a>
+                                </div>
                               </div>
                             </td>
                           </tr>
