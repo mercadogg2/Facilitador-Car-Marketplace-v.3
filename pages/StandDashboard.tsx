@@ -33,7 +33,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         const profileName = user.user_metadata?.stand_name || 'Stand';
         setStandName(profileName);
         
-        // Busca status real da tabela profiles para garantir a regra de negócio
         const { data: profile } = await supabase
           .from('profiles')
           .select('status, role')
@@ -43,7 +42,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         const currentStatus = profile?.status || 'pending';
         setStatus(currentStatus);
 
-        // Apenas stands aprovados ou admins podem ver dados e stock
         if (currentStatus === 'approved' || profile?.role === UserRole.ADMIN) {
           const { data: carsData } = await supabase
             .from('cars')
@@ -52,12 +50,17 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           
           if (carsData) setMyCars(carsData);
 
-          const { data: leadsData } = await supabase
-            .from('leads')
-            .select('*, cars(brand, model)')
-            .order('created_at', { ascending: false });
+          const myCarIds = (carsData || []).map(c => c.id);
+          
+          if (myCarIds.length > 0) {
+            const { data: leadsData } = await supabase
+              .from('leads')
+              .select('*, cars(brand, model)')
+              .in('car_id', myCarIds)
+              .order('created_at', { ascending: false });
 
-          if (leadsData) setMyLeads(leadsData as any);
+            if (leadsData) setMyLeads(leadsData as any);
+          }
         }
       }
     } catch (e) {
@@ -80,12 +83,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     }
   };
 
-  const handleCopyLink = (subdomain: string) => {
-    const url = `${window.location.origin}/#/v/${subdomain}`;
-    navigator.clipboard.writeText(url);
-    alert(lang === 'pt' ? 'Link copiado com sucesso!' : 'Link copied to clipboard!');
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -99,159 +96,103 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   return (
     <div className="bg-gray-50 min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Banner de Status - Regra de Negócio Crucial */}
-        {!isApproved && (
-          <div className={`p-6 rounded-[30px] border flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-top duration-500 shadow-sm ${
-            status === 'pending' 
-              ? 'bg-amber-50 border-amber-100 text-amber-800' 
-              : 'bg-red-50 border-red-100 text-red-800'
-          }`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm ${
-              status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
-            }`}>
-              <i className={`fas ${status === 'pending' ? 'fa-hourglass-half' : 'fa-ban'}`}></i>
-            </div>
-            <div className="flex-grow text-center md:text-left">
-              <h3 className="text-lg font-black tracking-tight">
-                {status === 'pending' 
-                  ? (lang === 'pt' ? 'Conta em Análise' : 'Account Under Review')
-                  : (lang === 'pt' ? 'Acesso Restrito' : 'Restricted Access')}
-              </h3>
-              <p className="text-sm font-medium opacity-90 leading-relaxed">
-                {status === 'pending'
-                  ? (lang === 'pt' ? 'A sua conta de stand profissional está a ser validada pela nossa equipa. Receberá um e-mail em breve com o resultado da análise.' : 'Your professional stand account is being validated by our team. You will receive an email soon.')
-                  : (lang === 'pt' ? 'Infelizmente, o seu acesso de stand profissional não foi aprovado. Contacte o suporte para habilitar a criação de anuncios.' : 'Unfortunately, your professional stand access was not approved. Contact support to enable listing creation.')}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <header className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-none">{t.title}</h1>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-gray-500 font-bold">{standName}</span>
-              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                status === 'approved' ? 'bg-green-100 text-green-700' : 
-                status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-              }`}>
-                {status}
-              </span>
-            </div>
+            <h1 className="text-3xl font-black text-gray-900">{standName}</h1>
+            <p className="text-gray-500 font-medium">
+              {isApproved ? t.subtitle : (lang === 'pt' ? 'Aguardando Aprovação' : 'Awaiting Approval')}
+            </p>
           </div>
           <div className="flex gap-4">
-            <button 
-              onClick={() => navigate('/cliente/editar')}
-              className="px-6 py-4 rounded-2xl border border-gray-200 font-black text-gray-600 bg-white hover:bg-gray-50 transition-all flex items-center gap-2"
-            >
-              <i className="fas fa-user-cog"></i>
-              {lang === 'pt' ? 'Editar Perfil' : 'Edit Profile'}
-            </button>
-            <button 
-              onClick={() => isApproved && navigate('/anunciar')}
-              disabled={!isApproved}
-              className={`px-8 py-4 rounded-2xl font-black flex items-center gap-3 transition-all ${
-                isApproved 
-                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5' 
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed grayscale'
-              }`}
-            >
-              <i className={`fas ${isApproved ? 'fa-plus' : 'fa-lock'}`}></i>
-              {t.newAd}
-            </button>
+            <Link to={`/stand/${encodeURIComponent(standName)}`} className="px-6 py-3 rounded-xl border border-gray-200 font-bold hover:bg-gray-50 transition-all text-sm">
+              Ver Perfil Público
+            </Link>
+            {isApproved && (
+              <Link to="/anunciar" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all text-sm">
+                {t.newAd}
+              </Link>
+            )}
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-2 space-y-8">
-            <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl font-black">{t.myVehicles}</h3>
-                <span className="text-xs font-bold text-gray-400">{myCars.length} viaturas</span>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-[10px] uppercase font-black tracking-widest text-gray-400 border-b border-gray-50">
-                    <tr>
-                      <th className="px-4 py-4">Veículo</th>
-                      <th className="px-4 py-4">Preço</th>
-                      <th className="px-4 py-4 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {!isApproved ? (
-                       <tr>
-                        <td colSpan={3} className="px-4 py-20 text-center text-gray-400">
-                          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i className="fas fa-lock text-2xl opacity-20"></i>
-                          </div>
-                          <p className="font-bold">Conteúdo bloqueado até à aprovação da conta.</p>
-                        </td>
-                      </tr>
-                    ) : myCars.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-16 text-center text-gray-400 font-bold italic">
-                          Ainda não possui anúncios publicados.
-                        </td>
-                      </tr>
-                    ) : myCars.map(car => (
-                      <tr key={car.id} className="group hover:bg-gray-50/50 transition-colors">
-                        <td className="px-4 py-6">
-                          <div className="flex items-center gap-4">
-                            <img src={car.image} className="w-12 h-12 rounded-xl object-cover shadow-sm" alt="" />
-                            <div>
-                              <p className="font-bold text-gray-900 leading-tight">{car.brand} {car.model}</p>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{car.year} • {car.fuel}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-6">
-                          <span className="font-bold text-blue-600">
-                            {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-6 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Link to={`/veiculos/${car.id}`} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-blue-600 flex items-center justify-center transition-all"><i className="fas fa-eye"></i></Link>
-                            <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-amber-600 flex items-center justify-center transition-all"><i className="fas fa-edit"></i></Link>
-                            <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-red-600 flex items-center justify-center transition-all"><i className="fas fa-trash-alt"></i></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        {!isApproved ? (
+          <div className="bg-amber-50 border border-amber-100 p-12 rounded-[40px] text-center max-w-2xl mx-auto">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">
+              <i className="fas fa-clock"></i>
             </div>
+            <h2 className="text-2xl font-black text-amber-900 mb-2">Conta Pendente de Verificação</h2>
+            <p className="text-amber-700 font-medium">A sua conta de stand profissional está a ser analisada pela nossa equipa de qualidade. Este processo demora normalmente menos de 24 horas.</p>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              <section className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <h2 className="text-2xl font-black text-gray-900 mb-6">{t.myVehicles}</h2>
+                <div className="space-y-4">
+                  {myCars.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 font-medium italic">Nenhum veículo anunciado ainda.</div>
+                  ) : myCars.map(car => (
+                    <div key={car.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition-all border border-transparent hover:border-gray-100">
+                      <img src={car.image} className="w-20 h-20 rounded-xl object-cover" alt="" />
+                      <div className="flex-grow">
+                        <h4 className="font-bold text-gray-900">{car.brand} {car.model}</h4>
+                        <p className="text-sm text-gray-500">{car.year} • {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all">
+                          <i className="fas fa-edit text-xs"></i>
+                        </Link>
+                        <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center hover:bg-red-600 hover:text-white transition-all">
+                          <i className="fas fa-trash-alt text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-          <aside className="space-y-8">
-             <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-               <h3 className="text-xl font-black mb-6">{t.recentLeads}</h3>
-               <div className="space-y-4">
-                 {!isApproved ? (
-                   <div className="p-6 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-center">
-                     <i className="fas fa-shield-alt text-slate-300 mb-2 block"></i>
-                     <p className="text-slate-400 text-xs font-bold leading-relaxed">
-                       {status === 'pending' ? 'Os leads serão desbloqueados após a validação.' : 'Acesso a leads negado.'}
-                     </p>
-                   </div>
-                 ) : myLeads.length === 0 ? (
-                   <p className="text-gray-400 text-sm font-medium">Sem novos leads.</p>
-                 ) : myLeads.slice(0, 5).map(lead => (
-                   <div key={lead.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                     <p className="font-bold text-sm text-gray-900">{lead.customer_name}</p>
-                     <p className="text-[10px] font-bold text-blue-600 mt-1 uppercase">
-                       { (lead.cars as any)?.brand } { (lead.cars as any)?.model }
-                     </p>
-                   </div>
-                 ))}
-               </div>
-             </div>
-          </aside>
-        </div>
+              <section className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <h2 className="text-2xl font-black text-gray-900 mb-6">{t.recentLeads}</h2>
+                <div className="space-y-4">
+                  {myLeads.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 font-medium italic">Ainda não recebeu mensagens de interessados.</div>
+                  ) : myLeads.map(lead => (
+                    <div key={lead.id} className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex justify-between mb-4">
+                        <div>
+                          <p className="font-black text-gray-900">{lead.customer_name}</p>
+                          <p className="text-xs text-blue-600 font-bold uppercase tracking-widest">Interesse: {(lead.cars as any)?.brand} {(lead.cars as any)?.model}</p>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase">{new Date(lead.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4 italic line-clamp-2">"{lead.message}"</p>
+                      <div className="flex gap-4">
+                         <a href={`mailto:${lead.customer_email}`} className="text-xs font-bold text-blue-600 hover:underline"><i className="fas fa-envelope mr-1"></i> Email</a>
+                         <a href={`tel:${lead.customer_phone}`} className="text-xs font-bold text-blue-600 hover:underline"><i className="fas fa-phone mr-1"></i> Ligar</a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <aside className="space-y-8">
+              <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl shadow-blue-100">
+                <h3 className="text-xl font-black mb-6">Resumo Semanal</h3>
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-blue-200 text-xs font-black uppercase tracking-widest mb-1">Leads Novos</p>
+                    <p className="text-4xl font-black">{myLeads.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-blue-200 text-xs font-black uppercase tracking-widest mb-1">Total Viaturas</p>
+                    <p className="text-4xl font-black">{myCars.length}</p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -49,18 +49,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const fetchPlatformData = async () => {
     setLoading(true);
     try {
+      console.log("A carregar dados globais para Admin...");
+      
       const [userRes, leadsRes, carsRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('leads').select('*, cars(brand, model, image, stand_name)').order('created_at', { ascending: false }),
+        supabase.from('leads').select('*, cars(id, brand, model, image, stand_name)').order('created_at', { ascending: false }),
         supabase.from('cars').select('*').order('created_at', { ascending: false })
       ]);
 
       if (userRes.data) setUsers(userRes.data);
       if (carsRes.data) setAds(carsRes.data);
-      if (leadsRes.data) setLeads(leadsRes.data as any);
+      
+      if (leadsRes.data) {
+        console.log("Leads carregados:", leadsRes.data.length);
+        setLeads(leadsRes.data as any);
+      } else if (leadsRes.error) {
+        console.error("Erro ao buscar leads:", leadsRes.error);
+      }
 
     } catch (err: any) {
-      console.error("Erro ao carregar dados:", err.message);
+      console.error("Erro fatal ao carregar dados:", err.message);
     } finally {
       setLoading(false);
     }
@@ -189,7 +197,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
             {[
               { label: 'Utilizadores', value: users.length, icon: 'fa-user-friends', color: 'bg-indigo-50 text-indigo-600' },
               { label: 'Anúncios', value: ads.length, icon: 'fa-car-side', color: 'bg-blue-50 text-blue-600' },
-              { label: 'Leads Ativos', value: leads.length, icon: 'fa-bolt', color: 'bg-amber-50 text-amber-600' },
+              { label: 'Leads Totais', value: leads.length, icon: 'fa-bolt', color: 'bg-amber-50 text-amber-600' },
               { label: 'Stands Pendentes', value: users.filter(u => u.status === 'pending' && u.role === UserRole.STAND).length, icon: 'fa-clock', color: 'bg-red-50 text-red-600' }
             ].map((stat, i) => (
               <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
@@ -203,6 +211,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
+        {/* ... (Users and Ads sections remain the same) */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
             <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -349,7 +358,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
              <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-              <h3 className="text-2xl font-black text-slate-900">Fluxo de Leads</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-2xl font-black text-slate-900">Fluxo de Leads</h3>
+                <button onClick={fetchPlatformData} className="text-xs text-indigo-500 hover:underline font-bold">Atualizar</button>
+              </div>
               <input 
                 type="text" 
                 placeholder="Nome, e-mail ou telefone..." 
@@ -371,82 +383,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredLeads.length === 0 ? (
-                    <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado.</td></tr>
-                  ) : filteredLeads.map(l => (
-                    <React.Fragment key={l.id}>
-                      <tr className="hover:bg-slate-50/20 transition-colors">
-                        <td className="px-8 py-6">
-                          <div className="font-bold text-slate-900">{l.customer_name}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-3 group">
-                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
-                                <i className="fas fa-envelope"></i>
+                    <tr><td colSpan={5} className="px-8 py-10 text-center text-slate-400">Nenhum lead registado até ao momento.</td></tr>
+                  ) : filteredLeads.map(l => {
+                    const carData = (l as any).cars || (l as any).car; // Suporta singular ou plural
+                    return (
+                      <React.Fragment key={l.id}>
+                        <tr className="hover:bg-slate-50/20 transition-colors">
+                          <td className="px-8 py-6">
+                            <div className="font-bold text-slate-900">{l.customer_name}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">ID: {l.id.slice(0,8)}</div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3 group">
+                                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                                  <i className="fas fa-envelope"></i>
+                                </div>
+                                <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
                               </div>
-                              <span className="text-sm font-medium text-slate-700">{l.customer_email}</span>
-                              <button 
-                                onClick={() => copyToClipboard(l.customer_email, 'E-mail')}
-                                className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 hover:underline font-bold transition-opacity"
-                              >
-                                Copiar
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-3 group">
-                              <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
-                                <i className="fas fa-phone"></i>
+                              <div className="flex items-center gap-3 group">
+                                <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xs">
+                                  <i className="fas fa-phone"></i>
+                                </div>
+                                <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
                               </div>
-                              <span className="text-sm font-medium text-slate-700">{l.customer_phone}</span>
-                              <button 
-                                onClick={() => copyToClipboard(l.customer_phone, 'Telefone')}
-                                className="opacity-0 group-hover:opacity-100 text-[10px] text-green-500 hover:underline font-bold transition-opacity"
-                              >
-                                Copiar
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            { (l.cars as any)?.image && (
-                              <img src={(l.cars as any).image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
-                            )}
-                            <div>
-                              <div className="text-sm font-bold text-slate-900">{(l.cars as any)?.brand} {(l.cars as any)?.model}</div>
-                              <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {(l.cars as any)?.stand_name}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
-                          <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <button 
-                            onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                              expandedLead === l.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                          >
-                            {expandedLead === l.id ? 'Fechar' : 'Ver Detalhes'}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedLead === l.id && (
-                        <tr>
-                          <td colSpan={5} className="px-8 py-0">
-                            <div className="bg-slate-50/50 rounded-2xl p-6 mb-4 animate-in slide-in-from-top-2">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-3">Conteúdo da Mensagem e Preferências</h4>
-                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium italic">
-                                "{l.message}"
-                              </p>
                             </div>
                           </td>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-4">
+                              { carData?.image && (
+                                <img src={carData.image} className="w-10 h-10 rounded-lg object-cover shadow-sm" alt="" />
+                              )}
+                              <div>
+                                <div className="text-sm font-bold text-slate-900">{carData?.brand || 'Viatura'} {carData?.model || 'Desconhecida'}</div>
+                                <div className="text-[10px] text-indigo-600 font-black uppercase tracking-widest">Vendedor: {carData?.stand_name || 'Vendedor Directo'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="text-xs font-bold text-slate-500">{new Date(l.created_at).toLocaleDateString()}</div>
+                            <div className="text-[9px] text-slate-300 font-medium">{new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <button 
+                              onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)}
+                              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                expandedLead === l.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                              }`}
+                            >
+                              {expandedLead === l.id ? 'Fechar' : 'Ver Detalhes'}
+                            </button>
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
+                        {expandedLead === l.id && (
+                          <tr>
+                            <td colSpan={5} className="px-8 py-0">
+                              <div className="bg-slate-50/50 rounded-2xl p-6 mb-4 animate-in slide-in-from-top-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-3">Conteúdo da Mensagem e Preferências</h4>
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium italic bg-white p-4 rounded-xl border border-slate-100">
+                                  "{l.message}"
+                                </p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

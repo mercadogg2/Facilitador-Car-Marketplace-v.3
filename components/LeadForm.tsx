@@ -9,7 +9,7 @@ interface LeadFormProps {
   onClose: () => void;
 }
 
-export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
+export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,31 +29,38 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
 
     const fullMessage = `${formData.message}\n\n` +
       (lang === 'pt' 
-        ? `PREFERÊNCIAS:\n- Contacto: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
-        : `PREFERENCES:\n- Contact: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
+        ? `DETALHES DO PEDIDO:\n- Preferência: ${formData.contactPreference}\n- Pagamento: ${formData.paymentMethod}`
+        : `ORDER DETAILS:\n- Preference: ${formData.contactPreference}\n- Payment: ${formData.paymentMethod}`);
 
     try {
-      const { error } = await supabase.from('leads').insert([{
+      console.log("A enviar lead para o Supabase...", { car_id: car.id, name: formData.name });
+      
+      const { data, error } = await supabase.from('leads').insert([{
         car_id: car.id,
         customer_name: formData.name,
         customer_email: formData.email,
         customer_phone: formData.phone,
         message: fullMessage,
         status: 'Pendente'
-      }]);
+      }]).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro detalhado do Supabase:", error);
+        throw error;
+      }
 
+      console.log("Lead gravado com sucesso:", data);
       setIsSuccess(true);
       
-      // Fecha o formulário após 3 segundos de sucesso
       setTimeout(() => {
         onClose();
       }, 3000);
 
-    } catch (err) {
-      console.error("Erro ao guardar lead:", err);
-      alert(lang === 'pt' ? "Erro ao enviar pedido. Tente novamente." : "Error sending request. Try again.");
+    } catch (err: any) {
+      console.error("Erro completo ao guardar lead:", err);
+      alert(lang === 'pt' 
+        ? `Erro ao enviar pedido: ${err.message || 'Verifique se a tabela leads existe no seu Supabase.'}` 
+        : `Error sending request: ${err.message || 'Check if the leads table exists in your Supabase.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -67,12 +74,12 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-check"></i>
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">
-            {lang === 'pt' ? 'Pedido Enviado!' : 'Request Sent!'}
+            {lang === 'pt' ? 'Pedido Recebido!' : 'Request Received!'}
           </h2>
           <p className="text-gray-500 font-medium">
             {lang === 'pt' 
-              ? 'Obrigado pelo seu interesse. O vendedor entrará em contacto em breve.' 
-              : 'Thank you for your interest. The seller will contact you shortly.'}
+              ? 'O seu interesse foi registado no sistema. O vendedor entrará em contacto em breve.' 
+              : 'Your interest has been registered. The seller will contact you shortly.'}
           </p>
           <button 
             onClick={onClose}
@@ -96,7 +103,7 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
             <i className="fas fa-times text-xl"></i>
           </button>
           <h2 className="text-2xl font-bold text-white">{lang === 'pt' ? 'Demonstrar Interesse' : 'Show Interest'}</h2>
-          <p className="text-blue-100 text-sm">Interesse em: {car.brand} {car.model}</p>
+          <p className="text-blue-100 text-sm">Viatura: {car.brand} {car.model}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -162,7 +169,7 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
 
             <div>
               <label className="block text-sm font-bold text-gray-800 mb-2">
-                {lang === 'pt' ? 'Pretende comprar a pronto ou financiamento?' : 'Do you intend to buy cash or financing?'}
+                {lang === 'pt' ? 'Método de Pagamento' : 'Payment Method'}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -187,7 +194,7 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{lang === 'pt' ? 'Mensagem Adicional' : 'Additional Message'}</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{lang === 'pt' ? 'Mensagem' : 'Message'}</label>
             <textarea 
               rows={2}
               value={formData.message}
@@ -199,20 +206,15 @@ export default function FullLeadForm({ car, lang, onClose }: LeadFormProps) {
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-100 flex items-center justify-center space-x-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3"
           >
             {isSubmitting ? (
               <i className="fas fa-circle-notch animate-spin"></i>
             ) : (
-              <span>{lang === 'pt' ? 'Enviar Interesse' : 'Send Interest'}</span>
+              <i className="fas fa-paper-plane"></i>
             )}
+            <span>{lang === 'pt' ? 'Enviar Interesse' : 'Send Interest'}</span>
           </button>
-          
-          <p className="text-[10px] text-gray-400 text-center">
-            {lang === 'pt' 
-              ? 'Ao clicar em enviar, concorda com os nossos Termos de Utilização e Política de Privacidade.'
-              : 'By clicking send, you agree to our Terms of Use and Privacy Policy.'}
-          </p>
         </form>
       </div>
     </div>
