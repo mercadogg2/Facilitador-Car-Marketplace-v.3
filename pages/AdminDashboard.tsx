@@ -14,7 +14,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
   const tc = TRANSLATIONS[lang].common;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'ads' | 'users' | 'leads'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'stands' | 'users' | 'ads' | 'leads'>('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
@@ -26,6 +26,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   
   const [adSearch, setAdSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [standSearch, setStandSearch] = useState('');
   const [leadSearch, setLeadSearch] = useState('');
 
   const fetchPlatformData = async () => {
@@ -75,17 +76,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     setIsDeletingId(adId);
 
     try {
-      // Deletar usando match explícito
       const { error } = await supabase
         .from('cars')
         .delete()
         .match({ id: adId });
 
       if (error) throw error;
-      
-      // Atualizar estado local para refletir a mudança
       setAds(prev => prev.filter(a => a.id !== adId));
-      console.log(`Anúncio ${adId} removido com sucesso.`);
     } catch (err: any) {
       console.error("Admin Delete Ad Error:", err);
       alert(lang === 'pt' ? "Falha ao eliminar anúncio no servidor." : "Failed to delete ad on server.");
@@ -96,8 +93,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
   const handleDeleteUser = async (userId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "🚨 PERIGO: Eliminar este UTILIZADOR/STAND apagará o seu perfil permanentemente. Continuar?" 
-      : "🚨 DANGER: Deleting this USER/STAND will remove their profile permanently. Continue?";
+      ? "🚨 PERIGO: Eliminar este UTILIZADOR apagará o seu perfil permanentemente. Continuar?" 
+      : "🚨 DANGER: Deleting this USER will remove their profile permanently. Continue?";
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -137,11 +134,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   // --- Filtros ---
-  const filteredUsers = useMemo(() => 
-    users.filter(u => 
+  const filteredStands = useMemo(() => 
+    users.filter(u => u.role === UserRole.STAND).filter(u => 
+      (u.stand_name || '').toLowerCase().includes(standSearch.toLowerCase()) || 
+      (u.email || '').toLowerCase().includes(standSearch.toLowerCase()) ||
+      (u.location || '').toLowerCase().includes(standSearch.toLowerCase())
+    ), [users, standSearch]);
+
+  const filteredVisitors = useMemo(() => 
+    users.filter(u => u.role === UserRole.VISITOR).filter(u => 
       (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
-      (u.email || '').toLowerCase().includes(userSearch.toLowerCase()) ||
-      (u.stand_name || '').toLowerCase().includes(userSearch.toLowerCase())
+      (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
     ), [users, userSearch]);
 
   const filteredAds = useMemo(() => 
@@ -169,25 +172,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
           <div>
             <h1 className="text-4xl font-black text-slate-900">Admin Central</h1>
             <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-1">Gestão Global da Plataforma</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
              <button onClick={fetchPlatformData} disabled={refreshing} className={`w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 ${refreshing ? 'animate-spin' : 'hover:text-indigo-600'}`}>
                <i className="fas fa-sync-alt"></i>
              </button>
-             <nav className="flex bg-slate-100 p-1.5 rounded-2xl">
-              {['overview', 'users', 'ads', 'leads'].map(tab => (
+             <nav className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto">
+              {[
+                { id: 'overview', label: 'Dashboard' },
+                { id: 'stands', label: 'Gestão Stands' },
+                { id: 'users', label: 'Clientes' },
+                { id: 'ads', label: 'Stock' },
+                { id: 'leads', label: 'Leads' }
+              ].map(tab => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all capitalize ${
-                    activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                    activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {tab === 'ads' ? 'Anúncios' : tab === 'users' ? 'Utilizadores' : tab}
+                  {tab.label}
                 </button>
               ))}
             </nav>
@@ -226,7 +235,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                           <p className="font-bold text-slate-900">{u.stand_name || u.full_name}</p>
                           <p className="text-[10px] text-slate-400 font-bold">{u.email}</p>
                         </div>
-                        <button onClick={() => setActiveTab('users')} className="text-xs font-black text-indigo-600 hover:underline">Ver Perfil</button>
+                        <button onClick={() => setActiveTab('stands')} className="text-xs font-black text-indigo-600 hover:underline">Ver Gestão</button>
                       </div>
                     ))}
                     {users.filter(u => u.role === UserRole.STAND && u.status === 'pending').length === 0 && (
@@ -250,16 +259,106 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {/* --- USERS TAB --- */}
-        {activeTab === 'users' && (
+        {/* --- STANDS TAB (GESTÃO DE STANDS) --- */}
+        {activeTab === 'stands' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
-              <h3 className="text-2xl font-black">Utilizadores & Parceiros</h3>
+              <h3 className="text-2xl font-black">Gestão de Stands Parceiros</h3>
               <div className="relative w-full md:w-96">
                 <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                 <input 
                   type="text" 
-                  placeholder="Nome, e-mail ou stand..." 
+                  placeholder="Nome do stand, email ou cidade..." 
+                  className="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
+                  value={standSearch}
+                  onChange={(e) => setStandSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Stand / Responsável</th>
+                    <th className="px-8 py-5">Localização & Contacto</th>
+                    <th className="px-8 py-5">Status Auditoria</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredStands.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-xl">
+                            {s.stand_name?.[0] || 'S'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{s.stand_name}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Responsável: {s.full_name}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-sm font-medium text-slate-600">{s.email}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{s.location || 'Portugal'} • {s.phone || 'N/A'}</p>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
+                          s.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                          s.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {s.status === 'approved' ? 'Verificado' : s.status === 'pending' ? 'Em Análise' : 'Rejeitado'}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          {s.status !== 'approved' && (
+                            <button 
+                              onClick={() => handleUpdateUserStatus(s.id, 'approved')} 
+                              className="px-4 py-2 bg-green-500 text-white rounded-xl text-[10px] font-black uppercase hover:bg-green-600 transition-colors shadow-sm"
+                            >
+                              Aprovar
+                            </button>
+                          )}
+                          {s.status === 'approved' && (
+                            <button 
+                              onClick={() => handleUpdateUserStatus(s.id, 'pending')} 
+                              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase hover:bg-amber-600 transition-colors shadow-sm"
+                            >
+                              Pendente
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleDeleteUser(s.id)}
+                            className="w-10 h-10 bg-white text-slate-300 border border-slate-100 rounded-xl hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                            title="Remover Stand"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredStands.length === 0 && (
+                    <tr><td colSpan={4} className="p-20 text-center text-slate-400 font-bold">Nenhum stand encontrado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* --- USERS TAB (CLIENTES PARTICULARES) --- */}
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+            <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
+              <h3 className="text-2xl font-black">Utilizadores Particulares</h3>
+              <div className="relative w-full md:w-96">
+                <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                <input 
+                  type="text" 
+                  placeholder="Nome ou e-mail..." 
                   className="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
@@ -270,23 +369,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
                   <tr>
-                    <th className="px-8 py-5">Perfil / Stand</th>
+                    <th className="px-8 py-5">Perfil</th>
                     <th className="px-8 py-5">Contacto</th>
-                    <th className="px-8 py-5">Status</th>
+                    <th className="px-8 py-5">Membro Desde</th>
                     <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredUsers.map(u => (
+                  {filteredVisitors.map(u => (
                     <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${u.role === UserRole.STAND ? 'bg-indigo-600' : 'bg-slate-400'}`}>
-                            {u.role === UserRole.STAND ? 'S' : 'P'}
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                            {u.full_name?.[0] || 'U'}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{u.stand_name || u.full_name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{u.role}</p>
+                            <p className="font-bold text-slate-900">{u.full_name}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Visitante</p>
                           </div>
                         </div>
                       </td>
@@ -295,31 +394,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         <p className="text-[10px] text-slate-400">{u.phone || 'Sem telemóvel'}</p>
                       </td>
                       <td className="px-8 py-6">
-                        <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                          u.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                          u.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {u.status}
-                        </span>
+                        <p className="text-xs font-bold text-slate-500">{new Date(u.created_at).toLocaleDateString()}</p>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          {u.status === 'pending' && (
-                            <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-8 h-8 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm">
-                              <i className="fas fa-check"></i>
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleDeleteUser(u.id)}
-                            className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
-                            title="Remover Definitivamente"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
+                        <button 
+                          onClick={() => handleDeleteUser(u.id)}
+                          className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                          title="Remover Utilizador"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
                       </td>
                     </tr>
                   ))}
+                  {filteredVisitors.length === 0 && (
+                    <tr><td colSpan={4} className="p-20 text-center text-slate-400 font-bold">Nenhum cliente particular encontrado.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
