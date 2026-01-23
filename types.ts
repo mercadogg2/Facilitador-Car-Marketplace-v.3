@@ -44,6 +44,7 @@ export interface Car {
   created_at?: string;
   user_id?: string;
   active?: boolean; // Novo campo para ativar/desativar anúncio
+  is_featured?: boolean; // Novo campo para anúncios em destaque
 }
 
 export interface Lead {

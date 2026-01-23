@@ -28,14 +28,26 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
+        // Busca até 8 anúncios que são marcados como destaques (is_featured = true)
         const { data, error } = await supabase
           .from('cars')
           .select('*')
           .eq('active', true)
-          .limit(4);
+          .eq('is_featured', true)
+          .order('created_at', { ascending: false })
+          .limit(8);
         
         if (!error && data) {
           setFeaturedCars(data);
+        } else {
+          // Fallback caso não haja destaques marcados
+          const { data: fallbackData } = await supabase
+            .from('cars')
+            .select('*')
+            .eq('active', true)
+            .order('created_at', { ascending: false })
+            .limit(8);
+          if (fallbackData) setFeaturedCars(fallbackData);
         }
       } catch (err) {
         console.error("Error fetching featured cars:", err);

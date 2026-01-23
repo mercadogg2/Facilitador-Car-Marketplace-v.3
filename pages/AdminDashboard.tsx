@@ -20,6 +20,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isUpdatingLead, setIsUpdatingLead] = useState<string | null>(null);
+  const [isUpdatingFeatured, setIsUpdatingFeatured] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -64,6 +65,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     };
     checkAuth();
   }, [role, navigate]);
+
+  const handleToggleFeatured = async (adId: string, currentFeatured: boolean) => {
+    setIsUpdatingFeatured(adId);
+    try {
+      const { error } = await supabase
+        .from('cars')
+        .update({ is_featured: !currentFeatured })
+        .eq('id', adId);
+
+      if (error) throw error;
+      setAds(prev => prev.map(a => a.id === adId ? { ...a, is_featured: !currentFeatured } : a));
+    } catch (err: any) {
+      alert("Erro ao destacar anúncio: " + err.message);
+    } finally {
+      setIsUpdatingFeatured(null);
+    }
+  };
 
   const handleToggleLeadStatus = async (leadId: string, currentStatus: string) => {
     setIsUpdatingLead(leadId);
@@ -158,12 +176,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       (u.email || '').toLowerCase().includes(standSearch.toLowerCase()) ||
       (u.location || '').toLowerCase().includes(standSearch.toLowerCase())
     ), [users, standSearch]);
-
-  const filteredVisitors = useMemo(() => 
-    users.filter(u => u.role === UserRole.VISITOR).filter(u => 
-      (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
-      (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
-    ), [users, userSearch]);
 
   const filteredAds = useMemo(() => 
     ads.filter(a => 
@@ -275,92 +287,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {activeTab === 'stands' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-            <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
-              <h3 className="text-2xl font-black">Gestão de Stands Parceiros</h3>
-              <div className="relative w-full md:w-96">
-                <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                <input 
-                  type="text" 
-                  placeholder="Nome do stand, email ou cidade..." 
-                  className="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
-                  value={standSearch}
-                  onChange={(e) => setStandSearch(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Stand / Responsável</th>
-                    <th className="px-8 py-5">Localização & Contacto</th>
-                    <th className="px-8 py-5">Status Auditoria</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredStands.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-xl">
-                            {s.stand_name?.[0] || 'S'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">{s.stand_name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Responsável: {s.full_name}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-medium text-slate-600">{s.email}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{s.location || 'Portugal'} • {s.phone || 'N/A'}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full ${
-                          s.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                          s.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {s.status === 'approved' ? 'Verificado' : s.status === 'pending' ? 'Em Análise' : 'Rejeitado'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          {s.status !== 'approved' && (
-                            <button 
-                              onClick={() => handleUpdateUserStatus(s.id, 'approved')} 
-                              className="px-4 py-2 bg-green-500 text-white rounded-xl text-[10px] font-black uppercase hover:bg-green-600 transition-colors shadow-sm"
-                            >
-                              Aprovar
-                            </button>
-                          )}
-                          {s.status === 'approved' && (
-                            <button 
-                              onClick={() => handleUpdateUserStatus(s.id, 'pending')} 
-                              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase hover:bg-amber-600 transition-colors shadow-sm"
-                            >
-                              Pendente
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleDeleteUser(s.id)}
-                            className="w-10 h-10 bg-white text-slate-300 border border-slate-100 rounded-xl hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
-                            title="Remover Stand"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'ads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
@@ -379,7 +305,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <tr>
                     <th className="px-8 py-5">Viatura</th>
                     <th className="px-8 py-5">Stand / Lojista</th>
-                    <th className="px-8 py-5">Preço</th>
+                    <th className="px-8 py-5">Destaque</th>
                     <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -400,7 +326,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         <p className="text-[10px] text-slate-400">{ad.location}</p>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="font-black text-slate-900">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ad.price)}</p>
+                        <button 
+                          onClick={() => handleToggleFeatured(ad.id, ad.is_featured || false)}
+                          disabled={isUpdatingFeatured === ad.id}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${ad.is_featured ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-300 border border-slate-200 hover:text-amber-500'}`}
+                        >
+                          {isUpdatingFeatured === ad.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-star"></i>}
+                        </button>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
