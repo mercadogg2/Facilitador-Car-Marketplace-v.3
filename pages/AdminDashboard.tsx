@@ -12,7 +12,6 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
-  const tAdmin = TRANSLATIONS[lang].admin;
   const tc = TRANSLATIONS[lang].common;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'ads' | 'users' | 'leads'>('overview');
@@ -63,7 +62,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     checkAuth();
   }, [role, navigate]);
 
-  // Handlers de Ação
+  // --- Handlers de Remoção Definitiva ---
+
+  const handleDeleteAd = async (adId: string) => {
+    const confirmMsg = lang === 'pt' 
+      ? "⚠️ ATENÇÃO: Deseja eliminar este ANÚNCIO definitivamente? Esta ação é irreversível." 
+      : "⚠️ WARNING: Do you want to delete this AD permanently? This action cannot be undone.";
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const { error } = await supabase.from('cars').delete().eq('id', adId);
+      if (error) throw error;
+      setAds(prev => prev.filter(a => a.id !== adId));
+    } catch (err: any) {
+      alert("Erro ao eliminar anúncio: " + err.message);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const confirmMsg = lang === 'pt' 
+      ? "🚨 PERIGO: Eliminar este UTILIZADOR/STAND apagará o seu perfil permanentemente. Continuar?" 
+      : "🚨 DANGER: Deleting this USER/STAND will remove their profile permanently. Continue?";
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      // Nota: Idealmente removeríamos os anúncios deste user também se houvesse Cascade no DB
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      if (error) throw error;
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (err: any) {
+      alert("Erro ao eliminar utilizador: " + err.message);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    const confirmMsg = lang === 'pt' 
+      ? "Deseja remover este registo de lead definitivamente?" 
+      : "Do you want to remove this lead record permanently?";
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const { error } = await supabase.from('leads').delete().eq('id', leadId);
+      if (error) throw error;
+      setLeads(prev => prev.filter(l => l.id !== leadId));
+    } catch (err: any) {
+      alert("Erro ao eliminar lead: " + err.message);
+    }
+  };
+
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
     try {
       const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
@@ -74,18 +123,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
-  const handleDeleteAd = async (adId: string) => {
-    if (!window.confirm(tc.confirmDelete)) return;
-    try {
-      const { error } = await supabase.from('cars').delete().eq('id', adId);
-      if (error) throw error;
-      setAds(prev => prev.filter(a => a.id !== adId));
-    } catch (err: any) {
-      alert("Erro ao eliminar: " + err.message);
-    }
-  };
-
-  // Filtros
+  // --- Filtros ---
   const filteredUsers = useMemo(() => 
     users.filter(u => 
       (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
@@ -254,11 +292,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
                           {u.status === 'pending' && (
-                            <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-8 h-8 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                            <button onClick={() => handleUpdateUserStatus(u.id, 'approved')} className="w-8 h-8 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm">
                               <i className="fas fa-check"></i>
                             </button>
                           )}
-                          <button className="w-8 h-8 bg-slate-100 text-slate-400 rounded-lg hover:text-red-500 hover:bg-red-50 transition-colors">
+                          <button 
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                            title="Remover Definitivamente"
+                          >
                             <i className="fas fa-trash"></i>
                           </button>
                         </div>
@@ -315,10 +357,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => navigate(`/veiculos/${ad.id}`)} className="w-8 h-8 bg-slate-100 text-slate-500 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">
+                          <button onClick={() => navigate(`/veiculos/${ad.id}`)} className="w-8 h-8 bg-slate-100 text-slate-500 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
                             <i className="fas fa-eye text-xs"></i>
                           </button>
-                          <button onClick={() => handleDeleteAd(ad.id)} className="w-8 h-8 bg-slate-100 text-slate-400 rounded-lg hover:text-red-500 hover:bg-red-50 transition-all">
+                          <button 
+                            onClick={() => handleDeleteAd(ad.id)} 
+                            className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                            title="Apagar Anúncio"
+                          >
                             <i className="fas fa-trash text-xs"></i>
                           </button>
                         </div>
@@ -379,9 +425,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                             )}
                           </td>
                           <td className="px-8 py-6 text-right">
-                            <button onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)} className="px-4 py-2 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all">
-                              {expandedLead === l.id ? 'Ocultar' : 'Mensagem'}
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setExpandedLead(expandedLead === l.id ? null : l.id)} className="px-4 py-2 bg-slate-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-sm">
+                                {expandedLead === l.id ? 'Ocultar' : 'Mensagem'}
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteLead(l.id)} 
+                                className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-500 hover:bg-red-50 transition-all shadow-sm"
+                                title="Remover Registo"
+                              >
+                                <i className="fas fa-trash-alt text-xs"></i>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {expandedLead === l.id && (
