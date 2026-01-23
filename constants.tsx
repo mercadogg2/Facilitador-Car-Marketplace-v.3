@@ -31,16 +31,6 @@ export const MOCK_BLOG: BlogPost[] = [
     date: '2024-05-15',
     image: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?auto=format&fit=crop&q=80&w=800',
     reading_time: '5 min'
-  },
-  {
-    id: 'b2',
-    title: 'Carros Elétricos vs Híbridos: Qual a melhor escolha em Portugal?',
-    excerpt: 'Análise detalhada sobre custos de carregamento, autonomia e benefícios fiscais para 2026.',
-    content: `A transição energética está a acelerar. Para quem faz mais de 50km diários em ambiente urbano, o elétrico puro (BEV) é imbatível no custo por quilómetro. No entanto, para quem viaja frequentemente pelo interior do país, os Híbridos Plug-in ainda oferecem a paz de espírito necessária. Em 2026, os novos incentivos do Fundo Ambiental tornam a troca ainda mais atrativa. Analisamos os modelos mais fiáveis de cada categoria neste guia exclusivo.`,
-    author: 'Equipa Editorial',
-    date: '2024-11-20',
-    image: 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=800',
-    reading_time: '7 min'
   }
 ];
 
@@ -64,48 +54,20 @@ export const TRANSLATIONS = {
     },
     stands: {
       title: 'Stands Certificados',
-      subtitle: 'Conheça a nossa rede de parceiros rigorosamente selecionados para garantir a sua segurança.',
+      subtitle: 'Conheça a nossa rede de parceiros rigorosamente selecionados.',
       searchPlaceholder: 'Pesquisar por nome ou cidade...',
       viewStock: 'Ver Stock',
       verifiedPartner: 'Parceiro Certificado',
-      noResults: 'Nenhum stand encontrado com estes critérios.'
+      noResults: 'Nenhum stand encontrado.'
     },
     standDetail: {
       viewStock: 'Ver Stock Completo',
       totalVehicles: 'veículos disponíveis',
       since: 'Parceiro desde',
       location: 'Localização',
-      contactStand: 'Contactar Stand',
+      contactStand: 'Falar com suporte',
       aboutStand: 'Sobre o Stand',
-      verifiedReason: 'Este stand passou pelo rigoroso processo de auditoria Facilitador Car, garantindo transparência documental e qualidade mecânica.'
-    },
-    auth: {
-      loginTitle: 'Bem-vindo de volta',
-      registerTitle: 'Crie a sua conta',
-      loginSubtitle: 'Aceda à sua área personalizada Facilitador Car.',
-      registerSubtitle: 'Junte-se à maior rede de stands verificados.',
-      email: 'E-mail',
-      password: 'Palavra-passe',
-      name: 'Nome Completo',
-      standName: 'Nome do Stand',
-      userType: 'Eu sou um...',
-      typeBuyer: 'Comprador / Particular',
-      typeStand: 'Stand / Profissional',
-      submitLogin: 'Entrar',
-      submitRegister: 'Criar Conta',
-      noAccount: 'Não tem conta? Registe-se',
-      hasAccount: 'Já tem conta? Inicie sessão aqui',
-      forgotPassword: 'Esqueceu-me da palavra-passe?',
-      successLogin: 'Início de sessão efetuado com sucesso!',
-      successRegister: 'Conta criada com sucesso!',
-      forgotPasswordTitle: 'Recuperar Acesso',
-      forgotPasswordSubtitle: 'Enviaremos um link de recuperação para o seu e-mail.',
-      resetPasswordTitle: 'Nova Palavra-passe',
-      resetPasswordSubtitle: 'Escolha uma nova palavra-passe segura para a sua conta.',
-      sendResetLink: 'Enviar Link de Recuperação',
-      updatePassword: 'Atualizar Palavra-passe',
-      checkEmail: 'Verifique o seu e-mail para redefinir a palavra-passe.',
-      resetSuccess: 'Palavra-passe alterada com sucesso!'
+      verifiedReason: 'Este stand passou pelo rigoroso processo de auditoria Facilitador Car.'
     },
     common: {
       price: 'Preço',
@@ -128,7 +90,7 @@ export const TRANSLATIONS = {
       back: 'Voltar',
       share: 'Partilhar',
       delete: 'Remover',
-      confirmDelete: 'Tem a certeza que deseja remover? Esta ação não pode ser desfeita.',
+      confirmDelete: 'Tem a certeza?',
       actions: 'Ações'
     },
     detail: {
@@ -139,131 +101,13 @@ export const TRANSLATIONS = {
       callButton: 'Ligar para o Stand',
       location: 'Localização',
       relatedTitle: 'Veículos Relacionados',
-      verifiedReason: 'Este stand passou por 12 pontos de verificação rigorosa do Facilitador Car, garantindo histórico limpo e atendimento de qualidade.'
-    },
-    createAd: {
-      title: 'Criar Novo Anúncio',
-      subtitle: 'Preencha os dados do veículo para começar a receber leads qualificados.',
-      basicInfo: 'Informação Básica',
-      technicalSpecs: 'Detalhes Técnicos',
-      commercial: 'Comercial e Fotos',
-      marketing: 'Marketing e Link Personalizado',
-      publish: 'Publicar Anúncio',
-      success: 'Anúncio publicado com sucesso!',
-      error: 'Erro ao publicar. Verifique os campos.',
-      upload: 'Upload de Foto (URL)',
-      subdomainTitle: 'Subdomínio do Anúncio',
-      subdomainDesc: 'Crie uma landing page exclusiva para este veículo.',
-      subdomainPlaceholder: 'ex: toyota-yaris-sport',
-      fields: {
-        brand: 'Marca',
-        model: 'Modelo',
-        year: 'Ano',
-        category: 'Categoria',
-        mileage: 'Quilometragem',
-        fuel: 'Combustível',
-        transmission: 'Transmissão',
-        price: 'Preço (€)',
-        location: 'Localização (Cidade)',
-        description: 'Descrição Detalhada'
-      }
-    },
-    editProfile: {
-      title: 'Editar Perfil',
-      subtitle: 'Mantenha os seus dados atualizados para uma melhor experiência.',
-      personalInfo: 'Informação Pessoal',
-      security: 'Segurança e Acesso',
-      saveChanges: 'Guardar Alterações',
-      success: 'Perfil atualizado com sucesso!',
-      changePhoto: 'Alterar Foto',
-      fields: {
-        name: 'Nome Completo',
-        email: 'Endereço de E-mail',
-        phone: 'Telemóvel',
-        location: 'Localização Principal',
-        currentPassword: 'Palavra-passe Atual',
-        newPassword: 'Nova Palavra-passe'
-      }
-    },
-    about: {
-      mission: 'A Nossa Missão',
-      title: 'Democratizar a confiança no mercado automóvel.',
-      desc: 'O Facilitador Car nasceu para resolver um problema antigo: a insegurança na compra de carros usados. A nossa plataforma liga compradores exigentes a stands criteriosamente verificados.',
-      values: [
-        { title: 'Rigor', desc: 'Apenas 10% dos stands que solicitam entrada são aprovados na nossa rede.' },
-        { title: 'Transparência', desc: 'Informação clara, histórico verificado e contacto direto sem intermediários.' },
-        { title: 'Inovação', desc: 'Tecnologia de ponta para busca avançada e gestão de leads em tempo real.' }
-      ],
-      historyTitle: 'Próxima Paragem: Fevereiro de 2026',
-      historyDesc: 'Atualmente estamos em fase de beta privada, selecionando os melhores parceiros em Portugal para o lançamento oficial.',
-      stats: ['Stands Certificados', 'Segurança']
-    },
-    blog: {
-      title: 'Blog Automóvel',
-      subtitle: 'Dicas, notícias e guias para o ajudarem a fazer o melhor negócio com segurança.',
-      readMore: 'Ler Artigo Completo',
-      newsletterTitle: 'Não perca nenhuma novidade',
-      newsletterDesc: 'Subscreva a nossa newsletter para receber as melhores oportunidades e guias de segurança no seu e-mail.',
-      subscribe: 'Subscrever',
-      placeholder: 'O seu melhor e-mail',
-      related: 'Artigos Relacionados',
-      reading_time: 'Tempo de leitura'
-    },
-    dashboard: {
-      title: 'Painel do Stand',
-      subtitle: 'Stand Verificado',
-      newAd: 'Novo Anúncio',
-      myVehicles: 'Os Meus Veículos',
-      weeklyPerformance: 'Desempenho Semanal',
-      recentLeads: 'Leads Recentes',
-      viewAll: 'Ver tudo',
-      manageLeads: 'Gestão de Leads Avançada',
-      stats: ['Leads Totais', 'Visualizações', 'Veículos Ativos', 'Tempo Resposta']
-    },
-    admin: {
-      title: 'Painel Administrativo',
-      subtitle: 'Visão Geral da Plataforma',
-      stats: ['Utilizadores', 'Stands Ativos', 'Anúncios', 'Leads Mensais'],
-      standsManagement: 'Gestão de Parceiros',
-      usersManagement: 'Gestão de Utilizadores',
-      blogManagement: 'Gestão de Blog',
-      newArticle: 'Novo Artigo',
-      createArticle: 'Criar Artigo',
-      articleTitle: 'Título do Artigo',
-      articleAuthor: 'Autor',
-      articleReadingTime: 'Tempo de Leitura (ex: 5 min)',
-      articleImage: 'URL da Imagem de Capa',
-      articleExcerpt: 'Resumo (Excerto)',
-      articleContent: 'Conteúdo Completo',
-      approve: 'Aprovar',
-      reject: 'Rejeitar',
-      verified: 'Verificado',
-      pending: 'Pendente',
-      platformGrowth: 'Crescimento da Plataforma',
-      userList: {
-        name: 'Nome',
-        email: 'E-mail',
-        role: 'Função',
-        date: 'Data Registo',
-        actions: 'Ações'
-      }
-    },
-    userArea: {
-      greeting: 'Olá, Utilizador',
-      memberSince: 'Membro desde',
-      contactsDone: 'contactos realizados',
-      editProfile: 'Editar Perfil',
-      logout: 'Sair',
-      myFavorites: 'Os Meus Favoritos',
-      emptyTitle: 'Ainda não guardou nenhum veículo',
-      emptyDesc: 'Explore o mercado e guarde os carros de que mais gosta.',
-      explore: 'Explorar Veículos'
+      verifiedReason: 'Stand verificado com 12 pontos de auditoria.'
     },
     footer: {
-      desc: 'O marketplace que traz segurança e credibilidade para a compra do seu próximo veículo através de stands verificados.',
+      desc: 'Segurança e credibilidade na compra do seu próximo veículo através de stands verificados.',
       links: 'Links',
       legal: 'Legal',
-      rights: 'Todos os direitos reservados. Lançamento previsto para Fevereiro 2026.'
+      rights: 'Todos os direitos reservados. 2026.'
     }
   },
   en: {
@@ -275,58 +119,30 @@ export const TRANSLATIONS = {
       featured: 'Featured Vehicles',
       viewAll: 'View All',
       whyUs: 'Why us?',
-      credibility: 'Credibility that makes the difference in your choice.',
-      whyUsDesc: 'At Facilitador Car, we are not just another marketplace. We rigorously filter our partners to ensure that every deal is transparent and safe.',
+      credibility: 'Credibility that makes the difference.',
+      whyUsDesc: 'We filter partners to ensure every deal is transparent and safe.',
       benefits: [
-        { title: 'Dealership Certification', desc: 'Only retailers with an impeccable track record.' },
-        { title: 'Influencer Support', desc: 'Partners who test and approve vehicles.' },
-        { title: 'Direct WhatsApp channel for speed.' }
+        { title: 'Dealership Certification', desc: 'Only top-tier retailers.' },
+        { title: 'Expert Support', desc: 'Approved and tested vehicles.' },
+        { title: 'WhatsApp Direct', desc: 'Agile communication channel.' }
       ]
     },
     stands: {
       title: 'Certified Dealers',
-      subtitle: 'Meet our network of rigorously selected partners to ensure your safety.',
-      searchPlaceholder: 'Search by name or city...',
+      subtitle: 'Our network of strictly selected partners.',
+      searchPlaceholder: 'Search name or city...',
       viewStock: 'View Stock',
       verifiedPartner: 'Certified Partner',
-      noResults: 'No dealers found with these criteria.'
+      noResults: 'No dealers found.'
     },
     standDetail: {
       viewStock: 'View Full Stock',
       totalVehicles: 'vehicles available',
       since: 'Partner since',
       location: 'Location',
-      contactStand: 'Contact Dealer',
+      contactStand: 'Talk to Support',
       aboutStand: 'About Dealership',
-      verifiedReason: 'This dealer has passed the Facilitador Car audit, ensuring documental transparency and mechanical quality.'
-    },
-    auth: {
-      loginTitle: 'Welcome back',
-      registerTitle: 'Create your account',
-      loginSubtitle: 'Access your personalized Facilitador Car area.',
-      registerSubtitle: 'Join the largest network of verified dealerships.',
-      email: 'Email',
-      password: 'Password',
-      name: 'Full Name',
-      standName: 'Dealership Name',
-      userType: 'I am a...',
-      typeBuyer: 'Buyer / Individual',
-      typeStand: 'Dealership / Professional',
-      submitLogin: 'Login',
-      submitRegister: 'Create Account',
-      noAccount: "Don't have an account? Register",
-      hasAccount: 'Already have an account? Login here',
-      forgotPassword: 'Forgot password?',
-      successLogin: 'Login successful!',
-      successRegister: 'Account created successfully!',
-      forgotPasswordTitle: 'Recover Access',
-      forgotPasswordSubtitle: 'We will send a recovery link to your email.',
-      resetPasswordTitle: 'New Password',
-      resetPasswordSubtitle: 'Choose a new secure password for your account.',
-      sendResetLink: 'Send Recovery Link',
-      updatePassword: 'Update Password',
-      checkEmail: 'Check your email to reset your password.',
-      resetSuccess: 'Password changed successfully!'
+      verifiedReason: 'Passed Facilitador Car audit.'
     },
     common: {
       price: 'Price',
@@ -334,22 +150,22 @@ export const TRANSLATIONS = {
       km: 'Km',
       fuel: 'Fuel',
       contact: 'I am interested',
-      verified: 'Verified Stand',
+      verified: 'Verified Dealer',
       leads: 'Lead Management',
       search: 'Search',
       filters: 'Filters',
-      brand: 'Make',
-      category: 'Vehicle Type',
+      brand: 'Brand',
+      category: 'Type',
       maxPrice: 'Max Price',
       clearFilters: 'Clear Filters',
       noResults: 'No vehicles found',
       found: 'Vehicles found',
       sortBy: 'Sort by',
-      recent: 'Most recent',
+      recent: 'Recent',
       back: 'Back',
       share: 'Share',
       delete: 'Delete',
-      confirmDelete: 'Are you sure you want to delete? This action cannot be undone.',
+      confirmDelete: 'Are you sure?',
       actions: 'Actions'
     },
     detail: {
@@ -360,132 +176,13 @@ export const TRANSLATIONS = {
       callButton: 'Call Dealer',
       location: 'Location',
       relatedTitle: 'Related Vehicles',
-      verifiedReason: 'This dealer has passed Facilitador Car’s 12-point rigorous verification, ensuring clean history and high-quality service.'
-    },
-    createAd: {
-      title: 'Create New Ad',
-      subtitle: 'Enter vehicle data to start receiving qualified leads.',
-      basicInfo: 'Basic Information',
-      technicalSpecs: 'Technical Specs',
-      commercial: 'Commercial and Photos',
-      marketing: 'Marketing and Custom Link',
-      publish: 'Publish Ad',
-      success: 'Ad published successfully!',
-      error: 'Error publishing. Check the fields.',
-      upload: 'Photo Upload (URL)',
-      subdomainTitle: 'Ad Subdomain',
-      subdomainDesc: 'Create an exclusive landing page for this vehicle.',
-      subdomainPlaceholder: 'ex: toyota-yaris-sport',
-      fields: {
-        brand: 'Brand',
-        model: 'Model',
-        year: 'Year',
-        category: 'Category',
-        mileage: 'Mileage',
-        fuel: 'Fuel',
-        transmission: 'Transmission',
-        price: 'Price (€)',
-        location: 'Location (City)',
-        description: 'Detailed Description'
-      }
-    },
-    editProfile: {
-      title: 'Edit Profile',
-      subtitle: 'Keep your details up to date for a better experience.',
-      personalInfo: 'Personal Information',
-      security: 'Security and Access',
-      saveChanges: 'Save Changes',
-      success: 'Profile updated successfully!',
-      changePhoto: 'Change Photo',
-      fields: {
-        name: 'Full Name',
-        email: 'Email Address',
-        phone: 'Phone Number',
-        location: 'Main Location',
-        currentPassword: 'Current Password',
-        newPassword: 'New Password'
-      }
-    },
-    about: {
-      mission: 'Our Mission',
-      title: 'Democratizing trust in the automotive market.',
-      desc: 'Facilitador Car was born to solve an old problem: insecurity when buying used cars. Our platform connects demanding buyers to strictly verified dealerships.',
-      values: [
-        { title: 'Rigor', desc: 'Only 10% of dealerships that apply are approved in our network.' },
-        { title: 'Transparency', desc: 'Clear information, verified history, and direct contact without intermediaries.' },
-        { title: 'Innovation', desc: 'Cutting-edge technology for advanced search and real-time lead management.' }
-      ],
-      historyTitle: 'Next Stop: February 2026',
-      historyDesc: 'We are currently in private beta, selecting the best partners in Portugal for the official launch.',
-      stats: ['Certified Stands', 'Security']
-    },
-    blog: {
-      title: 'Automotive Blog',
-      subtitle: 'Tips, news, and guides to help you make the best deal safely.',
-      readMore: 'Read Full Article',
-      newsletterTitle: "Don't miss any updates",
-      newsletterDesc: 'Subscribe to our newsletter to receive the best opportunities and safety guides in your email.',
-      subscribe: 'Subscribe',
-      placeholder: 'Your best email',
-      related: 'Related Articles',
-      reading_time: 'Reading time'
-    },
-    dashboard: {
-      title: 'Dealer Dashboard',
-      subtitle: 'Verified Dealership',
-      newAd: 'New Listing',
-      myVehicles: 'My Vehicles',
-      weeklyPerformance: 'Weekly Performance',
-      recentLeads: 'Recent Leads',
-      viewAll: 'View all',
-      manageLeads: 'Advanced Lead Management',
-      stats: ['Total Leads', 'Views', 'Active Vehicles', 'Response Time']
-    },
-    admin: {
-      title: 'Admin Panel',
-      subtitle: 'Platform Overview',
-      // Fix: Removed duplicate 'stats' property
-      stats: ['Users', 'Active Stands', 'Listings', 'Monthly Leads'],
-      standsManagement: 'Partner Management',
-      usersManagement: 'User Management',
-      blogManagement: 'Blog Management',
-      newArticle: 'New Article',
-      createArticle: 'Create Article',
-      articleTitle: 'Article Title',
-      articleAuthor: 'Author',
-      articleReadingTime: 'Reading Time (e.g., 5 min)',
-      articleImage: 'Cover Image URL',
-      articleExcerpt: 'Summary (Excerpt)',
-      articleContent: 'Full Content',
-      approve: 'Approve',
-      reject: 'Reject',
-      verified: 'Verified',
-      pending: 'Pending',
-      platformGrowth: 'Platform Growth',
-      userList: {
-        name: 'Name',
-        email: 'Email',
-        role: 'Role',
-        date: 'Joined',
-        actions: 'Actions'
-      }
-    },
-    userArea: {
-      greeting: 'Hello, User',
-      memberSince: 'Member since',
-      contactsDone: 'contacts made',
-      editProfile: 'Edit Profile',
-      logout: 'Logout',
-      myFavorites: 'My Favorites',
-      emptyTitle: "You haven't saved any vehicles yet",
-      emptyDesc: 'Explore the market and save the car you like best.',
-      explore: 'Explore Vehicles'
+      verifiedReason: '12-point verified dealership.'
     },
     footer: {
-      desc: 'The marketplace that brings security and credibility to your next vehicle purchase through verified dealerships.',
+      desc: 'Security and credibility for your next vehicle purchase.',
       links: 'Links',
       legal: 'Legal',
-      rights: 'All rights reserved. Launch scheduled for February 2026.'
+      rights: 'All rights reserved. 2026.'
     }
   }
 };

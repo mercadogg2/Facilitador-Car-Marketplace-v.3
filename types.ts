@@ -13,6 +13,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   stand_name?: string;
+  slug?: string; // Campo para URL única do stand
   description?: string;
   created_at: string;
   last_sign_in?: string;
@@ -34,6 +35,7 @@ export interface Car {
   images?: string[];
   description: string;
   stand_name: string;
+  stand_slug?: string; // Link direto para o stand
   verified: boolean;
   location: string;
   category: 'SUV' | 'Sedan' | 'Coupe' | 'Hatchback' | 'Utilitário';
@@ -52,7 +54,7 @@ export interface Lead {
   status: 'Pendente' | 'Contactado' | 'Vendido' | 'Cancelado';
   created_at: string;
   car?: Car;
-  cars?: Car; // Suporte para plural/singular retornado pelo Supabase
+  cars?: Car; 
 }
 
 export interface BlogPost {

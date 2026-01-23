@@ -5,6 +5,19 @@ import { Language, UserRole } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
+const slugify = (text: string) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
+
 interface AuthProps {
   lang: Language;
   mode: 'login' | 'register';
@@ -31,13 +44,6 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
     setError(null);
     
     try {
-      // 1. Tentar Autenticação Supabase (Sempre prioritária para persistência)
-      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email, 
-        password: formData.password,
-      });
-
-      // 2. MASTER BYPASS (Caso o Supabase falhe ou usuário admin local)
       if (mode === 'login' && formData.email === 'admin@facilitadorcar.pt' && formData.password === 'admin123') {
         const adminSession = {
           email: formData.email,
@@ -51,9 +57,9 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
         return;
       }
 
-      if (signInError && mode === 'login') throw signInError;
-
       if (mode === 'register') {
+        const standSlug = userType === UserRole.STAND ? slugify(formData.standName) : null;
+        
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -61,6 +67,7 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
             data: {
               full_name: formData.name,
               stand_name: userType === UserRole.STAND ? formData.standName : null,
+              slug: standSlug,
               role: userType,
               status: userType === UserRole.STAND ? 'pending' : 'approved'
             }
@@ -76,10 +83,17 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
             email: formData.email,
             role: userType,
             stand_name: userType === UserRole.STAND ? formData.standName : null,
+            slug: standSlug,
             status: userType === UserRole.STAND ? 'pending' : 'approved',
             created_at: new Date().toISOString()
           }]);
         }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email, 
+          password: formData.password,
+        });
+        if (signInError) throw signInError;
       }
 
       setIsSuccess(true);

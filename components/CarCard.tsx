@@ -4,6 +4,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Car, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 
+const slugify = (text: string) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
+
 interface CarCardProps {
   car: Car;
   lang: Language;
@@ -19,6 +32,8 @@ const CarCard: React.FC<CarCardProps> = ({ car, lang, onToggleFavorite, isFavori
   const handleCardClick = () => {
     navigate(`/veiculos/${car.id}`);
   };
+
+  const standSlug = car.stand_slug || slugify(car.stand_name);
 
   return (
     <div 
@@ -82,7 +97,7 @@ const CarCard: React.FC<CarCardProps> = ({ car, lang, onToggleFavorite, isFavori
             {car.location}
           </div>
           <Link 
-            to={`/stand/${encodeURIComponent(car.stand_name)}`}
+            to={`/stands/${standSlug}`}
             onClick={(e) => e.stopPropagation()}
             className="flex items-center hover:text-blue-600 transition-colors"
           >
