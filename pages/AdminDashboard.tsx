@@ -41,8 +41,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         supabase.from('leads').select('*, cars(id, brand, model, image, stand_name)').order('created_at', { ascending: false })
       ]);
 
-      if (profilesRes.data) setUsers(profilesRes.data);
-      if (adsRes.data) setAds(adsRes.data);
+      if (profilesRes.data) setUsers(profilesRes.data as UserProfile[]);
+      if (adsRes.data) setAds(adsRes.data as Car[]);
       if (leadsRes.data) setLeads(leadsRes.data as any);
 
     } catch (err: any) {
@@ -273,9 +273,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <div className="space-y-4">
                     {users.filter(u => u.role === UserRole.STAND && u.status === 'pending').map(u => (
                       <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                        <div>
-                          <p className="font-bold text-slate-900">{u.stand_name || u.full_name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">{u.email}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 font-black">
+                            {u.stand_name ? u.stand_name[0] : '?'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{u.stand_name || u.full_name}</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{u.email}</p>
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button 
@@ -285,16 +290,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                             Aprovar
                           </button>
                           <button 
-                            onClick={() => setActiveTab('stands')}
-                            className="text-xs font-black text-indigo-600 hover:underline"
+                            onClick={() => handleUpdateStatus(u.id, 'rejected')}
+                            className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase"
                           >
-                            Ver Tudo
+                            Rejeitar
                           </button>
                         </div>
                       </div>
                     ))}
                     {users.filter(u => u.role === UserRole.STAND && u.status === 'pending').length === 0 && (
-                      <p className="text-center text-slate-300 py-8 text-sm italic">Tudo em dia! Sem stands pendentes.</p>
+                      <div className="text-center py-8">
+                        <i className="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
+                        <p className="text-slate-300 text-sm italic">Tudo em dia! Sem stands pendentes.</p>
+                      </div>
                     )}
                   </div>
                </div>
@@ -303,8 +311,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <h3 className="text-xl font-black mb-6">Atividade Recente (Leads)</h3>
                   <div className="space-y-4">
                     {leads.slice(0, 5).map(l => (
-                      <div key={l.id} className="flex items-center justify-between p-4 border-b border-slate-50">
-                        <p className="text-sm font-bold text-slate-700">{l.customer_name} interessado em <span className="text-indigo-600">{l.stand_name}</span></p>
+                      <div key={l.id} className="flex items-center justify-between p-4 border-b border-slate-50 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xs">
+                            <i className="fas fa-user"></i>
+                          </div>
+                          <p className="text-sm font-bold text-slate-700">{l.customer_name} interessado em <span className="text-indigo-600">{l.stand_name}</span></p>
+                        </div>
                         <span className="text-[10px] text-slate-300 font-bold">{new Date(l.created_at).toLocaleDateString()}</span>
                       </div>
                     ))}
@@ -321,7 +334,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               <input 
                 type="text" 
                 placeholder="Nome, email ou localidade..." 
-                className="w-full md:w-96 pl-6 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
+                className="w-full md:w-96 pl-6 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 value={standSearch}
                 onChange={(e) => setStandSearch(e.target.value)}
               />
@@ -338,11 +351,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredStands.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50/50">
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black">
-                            {s.stand_name ? s.stand_name[0] : '?'}
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black overflow-hidden border border-indigo-100">
+                            {s.profile_image ? <img src={s.profile_image} className="w-full h-full object-cover" /> : (s.stand_name ? s.stand_name[0] : '?')}
                           </div>
                           <div>
                             <p className="font-bold text-slate-900">{s.stand_name}</p>
@@ -352,19 +365,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       </td>
                       <td className="px-8 py-6">
                         <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                          s.status === 'approved' ? 'bg-green-100 text-green-700' :
-                          s.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                          s.status === 'approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                          s.status === 'pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-red-100 text-red-700 border border-red-200'
                         }`}>
                           {s.status}
                         </span>
                       </td>
                       <td className="px-8 py-6 text-sm text-slate-500">{s.location || 'N/D'}</td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-3">
                           {s.status === 'pending' && (
-                            <button onClick={() => handleUpdateStatus(s.id, 'approved')} className="text-xs font-black text-green-600 hover:underline">Aprovar</button>
+                            <button onClick={() => handleUpdateStatus(s.id, 'approved')} className="text-xs font-black text-green-600 hover:text-green-700">Aprovar</button>
                           )}
-                          <button onClick={() => handleDeleteUser(s.id)} className="text-red-300 hover:text-red-600"><i className="fas fa-trash"></i></button>
+                          {s.status === 'approved' && (
+                            <button onClick={() => handleUpdateStatus(s.id, 'pending')} className="text-xs font-black text-amber-600 hover:text-amber-700">Suspender</button>
+                          )}
+                          <button onClick={() => handleDeleteUser(s.id)} className="text-slate-300 hover:text-red-600 transition-colors"><i className="fas fa-trash"></i></button>
                         </div>
                       </td>
                     </tr>
@@ -375,6 +391,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
+        {/* Mantidas abas users, ads e leads conforme implementação prévia */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">

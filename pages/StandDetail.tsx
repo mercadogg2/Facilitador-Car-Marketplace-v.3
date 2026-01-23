@@ -112,7 +112,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
                 standProfile.stand_name?.[0]
               )}
             </div>
-            <div className="text-center md:text-left space-y-4">
+            <div className="text-center md:text-left space-y-4 flex-grow">
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <h1 className="text-4xl md:text-6xl font-black tracking-tight">{standProfile.stand_name}</h1>
                 <div className="bg-blue-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
