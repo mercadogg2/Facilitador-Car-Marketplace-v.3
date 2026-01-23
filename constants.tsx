@@ -69,6 +69,73 @@ export const TRANSLATIONS = {
       aboutStand: 'Sobre o Stand',
       verifiedReason: 'Este stand passou pelo rigoroso processo de auditoria Facilitador Car.'
     },
+    auth: {
+      loginTitle: 'Bem-vindo de volta',
+      registerTitle: 'Crie a sua conta',
+      email: 'Endereço de E-mail',
+      password: 'Palavra-passe',
+      forgotPasswordTitle: 'Recuperar Acesso',
+      forgotPasswordSubtitle: 'Introduza o seu e-mail para receber o link de recuperação.',
+      sendResetLink: 'Enviar Link de Recuperação',
+      checkEmail: 'Verifique o seu E-mail',
+      resetPasswordTitle: 'Nova Palavra-passe',
+      resetPasswordSubtitle: 'Escolha uma nova senha segura para a sua conta.',
+      updatePassword: 'Atualizar Palavra-passe',
+      resetSuccess: 'Palavra-passe Atualizada!'
+    },
+    blog: {
+      title: 'Blog Facilitador',
+      subtitle: 'As últimas novidades do mundo automóvel e dicas exclusivas.',
+      readMore: 'Ler Artigo',
+      newsletterTitle: 'Fique por dentro',
+      newsletterDesc: 'Receba as melhores ofertas e novidades diretamente no seu e-mail.',
+      subscribe: 'Subscrever',
+      placeholder: 'O seu melhor e-mail...',
+      related: 'Artigos Relacionados'
+    },
+    about: {
+      title: 'A Nossa Missão',
+      mission: 'Transparência e Confiança',
+      desc: 'O Facilitador Car nasceu para revolucionar a forma como os portugueses compram carros, unindo tecnologia à credibilidade de stands certificados.',
+      values: [
+        { title: 'Segurança', desc: 'Processos de auditoria rigorosos em todos os parceiros.' },
+        { title: 'Proximidade', desc: 'Apoio real em cada etapa da sua negociação.' },
+        { title: 'Inovação', desc: 'Uma plataforma ágil pensada para o utilizador moderno.' }
+      ],
+      historyTitle: 'A Nossa História',
+      historyDesc: 'Começámos com um objetivo simples: eliminar o medo de comprar carros usados. Hoje, somos a ponte de confiança entre milhares de clientes e os melhores profissionais do setor.',
+      stats: ['Parceiros', 'Satisfação'],
+    },
+    userArea: {
+      greeting: 'Olá, Bem-vindo!',
+      memberSince: 'Membro desde',
+      myFavorites: 'Meus Favoritos',
+      editProfile: 'Editar Perfil',
+      logout: 'Terminar Sessão',
+      emptyTitle: 'Sem favoritos ainda',
+      emptyDesc: 'Explore as nossas viaturas e guarde as suas preferidas aqui.',
+      explore: 'Explorar Veículos'
+    },
+    editProfile: {
+      title: 'Meu Perfil',
+      subtitle: 'Mantenha os seus dados atualizados para uma melhor experiência.',
+      personalInfo: 'Dados Pessoais',
+      security: 'Segurança da Conta',
+      saveChanges: 'Guardar Alterações',
+      success: 'Perfil Atualizado!',
+      fields: {
+        name: 'Nome Completo',
+        phone: 'Telemóvel',
+        location: 'Localização',
+        newPassword: 'Nova Palavra-passe'
+      }
+    },
+    createAd: {
+      title: 'Publicar Viatura',
+      subtitle: 'Preencha os detalhes e comece a receber leads qualificadas.',
+      publish: 'Publicar Anúncio Agora',
+      success: 'Viatura Publicada!'
+    },
     common: {
       price: 'Preço',
       year: 'Ano',
@@ -143,6 +210,73 @@ export const TRANSLATIONS = {
       contactStand: 'Talk to Support',
       aboutStand: 'About Dealership',
       verifiedReason: 'Passed Facilitador Car audit.'
+    },
+    auth: {
+      loginTitle: 'Welcome back',
+      registerTitle: 'Create your account',
+      email: 'Email Address',
+      password: 'Password',
+      forgotPasswordTitle: 'Recover Access',
+      forgotPasswordSubtitle: 'Enter your email to receive a recovery link.',
+      sendResetLink: 'Send Recovery Link',
+      checkEmail: 'Check your Email',
+      resetPasswordTitle: 'New Password',
+      resetPasswordSubtitle: 'Choose a new secure password for your account.',
+      updatePassword: 'Update Password',
+      resetSuccess: 'Password Updated!'
+    },
+    blog: {
+      title: 'Facilitator Blog',
+      subtitle: 'The latest automotive news and exclusive tips.',
+      readMore: 'Read Article',
+      newsletterTitle: 'Stay Updated',
+      newsletterDesc: 'Get the best deals and news directly in your inbox.',
+      subscribe: 'Subscribe',
+      placeholder: 'Your best email...',
+      related: 'Related Articles'
+    },
+    about: {
+      title: 'Our Mission',
+      mission: 'Transparency and Trust',
+      desc: 'Facilitador Car was born to revolutionize how people buy cars, combining technology with the credibility of certified dealerships.',
+      values: [
+        { title: 'Security', desc: 'Rigorous audit processes for all partners.' },
+        { title: 'Proximity', desc: 'Real support in every stage of your negotiation.' },
+        { title: 'Innovation', desc: 'An agile platform designed for the modern user.' }
+      ],
+      historyTitle: 'Our History',
+      historyDesc: 'We started with a simple goal: to eliminate the fear of buying used cars. Today, we are the bridge of trust between thousands of clients and the best professionals.',
+      stats: ['Partners', 'Satisfaction'],
+    },
+    userArea: {
+      greeting: 'Hi, Welcome!',
+      memberSince: 'Member since',
+      myFavorites: 'My Favorites',
+      editProfile: 'Edit Profile',
+      logout: 'Logout',
+      emptyTitle: 'No favorites yet',
+      emptyDesc: 'Explore our vehicles and save your favorites here.',
+      explore: 'Explore Vehicles'
+    },
+    editProfile: {
+      title: 'My Profile',
+      subtitle: 'Keep your data updated for a better experience.',
+      personalInfo: 'Personal Information',
+      security: 'Account Security',
+      saveChanges: 'Save Changes',
+      success: 'Profile Updated!',
+      fields: {
+        name: 'Full Name',
+        phone: 'Phone Number',
+        location: 'Location',
+        newPassword: 'New Password'
+      }
+    },
+    createAd: {
+      title: 'Post Vehicle',
+      subtitle: 'Fill in the details and start receiving qualified leads.',
+      publish: 'Publish Ad Now',
+      success: 'Vehicle Published!'
     },
     common: {
       price: 'Price',

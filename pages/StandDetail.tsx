@@ -37,7 +37,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
           .single();
         
         if (profileError || !profileData) {
-          // Fallback para buscar por stand_name aproximado se slug falhar
+          // Fallback para buscar por stand_name aproximado se slug falhar ou se for nome direto na URL
           const { data: fallbackData } = await supabase
             .from('profiles')
             .select('*')
@@ -67,12 +67,20 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
     fetchStandData();
   }, [slug]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   if (!standProfile) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="w-20 h-20 bg-gray-100 text-gray-300 rounded-full flex items-center justify-center mb-6 text-3xl">
+        <i className="fas fa-store-slash"></i>
+      </div>
       <h2 className="text-2xl font-black text-gray-900 mb-2">Stand não encontrado</h2>
-      <Link to="/stands" className="text-blue-600 font-bold">Ver todos os Stands</Link>
+      <p className="text-gray-500 mb-8">O parceiro que procura pode ter alterado o nome ou o link.</p>
+      <Link to="/stands" className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">Ver todos os Stands</Link>
     </div>
   );
 
@@ -89,33 +97,34 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         </div>
       </div>
 
-      <section className="bg-gray-900 text-white py-20 relative overflow-hidden">
+      <section className="bg-gray-900 text-white py-20 md:py-32 relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <img src="https://images.unsplash.com/photo-1562141989-c5c79ac8f576?auto=format&fit=crop&q=80&w=1920" className="w-full h-full object-cover" alt="BG" />
         </div>
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="w-32 h-32 bg-blue-600 rounded-[30px] flex items-center justify-center text-5xl font-black shadow-2xl">
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-blue-600 rounded-[35px] flex items-center justify-center text-5xl md:text-6xl font-black shadow-2xl">
               {standProfile.stand_name?.[0]}
             </div>
-            <div className="text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-                <h1 className="text-4xl md:text-5xl font-black tracking-tight">{standProfile.stand_name}</h1>
-                <div className="bg-blue-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2">
-                  <i className="fas fa-check-circle"></i> STAND VERIFICADO
+            <div className="text-center md:text-left space-y-4">
+              <div className="flex flex-col md:flex-row items-center gap-4">
+                <h1 className="text-4xl md:text-6xl font-black tracking-tight">{standProfile.stand_name}</h1>
+                <div className="bg-blue-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
+                  <i className="fas fa-check-circle"></i> {lang === 'pt' ? 'STAND VERIFICADO' : 'VERIFIED DEALER'}
                 </div>
               </div>
-              <div className="flex flex-wrap justify-center md:justify-start gap-6 text-gray-400 font-bold text-xs uppercase tracking-widest">
-                <span><i className="fas fa-map-marker-alt mr-2 text-blue-400"></i>{standProfile.location || 'Portugal'}</span>
-                <span><i className="fas fa-car mr-2 text-blue-400"></i>{cars.length} {t.totalVehicles}</span>
+              <div className="flex flex-wrap justify-center md:justify-start gap-8 text-gray-400 font-bold text-xs uppercase tracking-widest">
+                <span className="flex items-center gap-2"><i className="fas fa-map-marker-alt text-blue-400"></i>{standProfile.location || 'Portugal'}</span>
+                <span className="flex items-center gap-2"><i className="fas fa-car text-blue-400"></i>{cars.length} {t.totalVehicles}</span>
+                <span className="flex items-center gap-2"><i className="fas fa-id-badge text-blue-400"></i>{standProfile.slug}</span>
               </div>
             </div>
             <div className="md:ml-auto">
               <button 
-                onClick={() => window.open(`https://wa.me/${standProfile.phone?.replace(/\D/g, '')}`, '_blank')}
-                className="bg-white text-gray-900 px-8 py-4 rounded-2xl font-black hover:bg-blue-50 transition-all shadow-xl flex items-center gap-3"
+                onClick={() => window.open(`https://wa.me/${standProfile.phone?.replace(/\D/g, '') || ''}`, '_blank')}
+                className="bg-white text-gray-900 px-10 py-5 rounded-2xl font-black hover:bg-blue-50 transition-all shadow-2xl flex items-center justify-center gap-3 text-lg"
               >
-                <i className="fab fa-whatsapp text-xl text-[#25D366]"></i>
+                <i className="fab fa-whatsapp text-2xl text-[#25D366]"></i>
                 {t.contactStand}
               </button>
             </div>
@@ -124,7 +133,13 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-20">
-        <h2 className="text-3xl font-black text-gray-900 mb-12">Stock Disponível</h2>
+        <div className="flex justify-between items-end mb-12">
+          <div>
+            <h2 className="text-3xl font-black text-gray-900">Stock Disponível</h2>
+            <p className="text-gray-400 font-bold mt-1">Listagem atualizada em tempo real</p>
+          </div>
+        </div>
+
         {cars.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {cars.map(car => (
@@ -136,8 +151,9 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-gray-50 rounded-[40px] border border-dashed border-gray-200">
-            <p className="text-gray-500 font-bold">Nenhum veículo disponível no momento.</p>
+          <div className="text-center py-20 bg-gray-50 rounded-[50px] border border-dashed border-gray-200">
+            <i className="fas fa-car-side text-4xl text-gray-200 mb-4"></i>
+            <p className="text-gray-500 font-bold">Este stand não tem viaturas ativas no momento.</p>
           </div>
         )}
       </div>
