@@ -63,7 +63,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         .from('cars')
         .select('*')
         .eq('stand_name', name)
-        .eq('active', true); // Apenas anúncios ativos
+        .eq('active', true);
       if (carsData) setCars(carsData);
     };
 
@@ -122,17 +122,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
               <div className="flex flex-wrap justify-center md:justify-start gap-8 text-gray-400 font-bold text-xs uppercase tracking-widest">
                 <span className="flex items-center gap-2"><i className="fas fa-map-marker-alt text-blue-400"></i>{standProfile.location || 'Portugal'}</span>
                 <span className="flex items-center gap-2"><i className="fas fa-car text-blue-400"></i>{cars.length} {t.totalVehicles}</span>
-                <span className="flex items-center gap-2"><i className="fas fa-id-badge text-blue-400"></i>{standProfile.slug}</span>
               </div>
-            </div>
-            <div className="md:ml-auto">
-              <button 
-                onClick={() => window.open(`https://wa.me/${standProfile.phone?.replace(/\D/g, '') || ''}`, '_blank')}
-                className="bg-white text-gray-900 px-10 py-5 rounded-2xl font-black hover:bg-blue-50 transition-all shadow-2xl flex items-center justify-center gap-3 text-lg"
-              >
-                <i className="fab fa-whatsapp text-2xl text-[#25D366]"></i>
-                {t.contactStand}
-              </button>
             </div>
           </div>
         </div>

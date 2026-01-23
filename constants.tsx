@@ -17,6 +17,19 @@ export const TRANSLATIONS = {
         { title: 'Negociação Transparente', desc: 'Canal direto via WhatsApp para maior agilidade.' }
       ]
     },
+    support: {
+      btn: 'Contactar Facilitador',
+      title: 'Falar com o Facilitador',
+      subtitle: 'Deixe os seus dados e entraremos em contacto via WhatsApp.',
+      success: 'Redirecionando...',
+      successDesc: 'A abrir conversa no WhatsApp com a nossa equipa.',
+      fields: {
+        name: 'O seu nome',
+        email: 'O seu e-mail',
+        phone: 'Telemóvel',
+        message: 'Em que podemos ajudar?'
+      }
+    },
     stands: {
       title: 'Stands Certificados',
       subtitle: 'Conheça a nossa rede de parceiros rigorosamente selecionados.',
@@ -160,6 +173,19 @@ export const TRANSLATIONS = {
         { title: 'Expert Support', desc: 'Approved and tested vehicles.' },
         { title: 'WhatsApp Direct', desc: 'Agile communication channel.' }
       ]
+    },
+    support: {
+      btn: 'Contact Facilitator',
+      title: 'Talk to the Facilitator',
+      subtitle: 'Leave your details and we will contact you via WhatsApp.',
+      success: 'Redirecting...',
+      successDesc: 'Opening WhatsApp chat with our team.',
+      fields: {
+        name: 'Your name',
+        email: 'Your email',
+        phone: 'Phone number',
+        message: 'How can we help?'
+      }
     },
     stands: {
       title: 'Certified Dealers',

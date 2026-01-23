@@ -21,6 +21,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isUpdatingLead, setIsUpdatingLead] = useState<string | null>(null);
   const [isUpdatingFeatured, setIsUpdatingFeatured] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -80,6 +81,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       alert("Erro ao destacar anúncio: " + err.message);
     } finally {
       setIsUpdatingFeatured(null);
+    }
+  };
+
+  const handleUpdateStatus = async (userId: string, newStatus: ProfileStatus) => {
+    setIsUpdatingStatus(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('id', userId);
+
+      if (error) throw error;
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    } catch (err: any) {
+      alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setIsUpdatingStatus(null);
     }
   };
 
@@ -160,22 +178,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
-  const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
-    try {
-      const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
-      if (error) throw error;
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-    } catch (err: any) {
-      alert("Erro ao atualizar status: " + err.message);
-    }
-  };
-
   const filteredStands = useMemo(() => 
     users.filter(u => u.role === UserRole.STAND).filter(u => 
       (u.stand_name || '').toLowerCase().includes(standSearch.toLowerCase()) || 
       (u.email || '').toLowerCase().includes(standSearch.toLowerCase()) ||
       (u.location || '').toLowerCase().includes(standSearch.toLowerCase())
     ), [users, standSearch]);
+
+  const filteredUsers = useMemo(() => 
+    users.filter(u => u.role === UserRole.VISITOR).filter(u => 
+      (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) || 
+      (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+    ), [users, userSearch]);
 
   const filteredAds = useMemo(() => 
     ads.filter(a => 
@@ -263,7 +277,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                           <p className="font-bold text-slate-900">{u.stand_name || u.full_name}</p>
                           <p className="text-[10px] text-slate-400 font-bold">{u.email}</p>
                         </div>
-                        <button onClick={() => setActiveTab('stands')} className="text-xs font-black text-indigo-600 hover:underline">Ver Gestão</button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleUpdateStatus(u.id, 'approved')}
+                            className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase"
+                          >
+                            Aprovar
+                          </button>
+                          <button 
+                            onClick={() => setActiveTab('stands')}
+                            className="text-xs font-black text-indigo-600 hover:underline"
+                          >
+                            Ver Tudo
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {users.filter(u => u.role === UserRole.STAND && u.status === 'pending').length === 0 && (
@@ -283,6 +310,113 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                     ))}
                   </div>
                </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'stands' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+            <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
+              <h3 className="text-2xl font-black">Gestão de Stands</h3>
+              <input 
+                type="text" 
+                placeholder="Nome, email ou localidade..." 
+                className="w-full md:w-96 pl-6 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
+                value={standSearch}
+                onChange={(e) => setStandSearch(e.target.value)}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Stand</th>
+                    <th className="px-8 py-5">Status</th>
+                    <th className="px-8 py-5">Localidade</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredStands.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black">
+                            {s.stand_name ? s.stand_name[0] : '?'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{s.stand_name}</p>
+                            <p className="text-[10px] text-slate-400">{s.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                          s.status === 'approved' ? 'bg-green-100 text-green-700' :
+                          s.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-sm text-slate-500">{s.location || 'N/D'}</td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          {s.status === 'pending' && (
+                            <button onClick={() => handleUpdateStatus(s.id, 'approved')} className="text-xs font-black text-green-600 hover:underline">Aprovar</button>
+                          )}
+                          <button onClick={() => handleDeleteUser(s.id)} className="text-red-300 hover:text-red-600"><i className="fas fa-trash"></i></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+            <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
+              <h3 className="text-2xl font-black">Lista de Clientes</h3>
+              <input 
+                type="text" 
+                placeholder="Nome ou email..." 
+                className="w-full md:w-96 pl-6 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Utilizador</th>
+                    <th className="px-8 py-5">Email</th>
+                    <th className="px-8 py-5">Criado em</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-50/50">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i className="fas fa-user"></i>
+                          </div>
+                          <p className="font-bold text-slate-900">{u.full_name}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-sm text-slate-500">{u.email}</td>
+                      <td className="px-8 py-6 text-sm text-slate-500">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="px-8 py-6 text-right">
+                        <button onClick={() => handleDeleteUser(u.id)} className="text-red-300 hover:text-red-600"><i className="fas fa-trash"></i></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

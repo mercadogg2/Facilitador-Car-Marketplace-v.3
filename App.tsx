@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { UserRole, Language } from './types';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import SupportWidget from './components/SupportWidget';
 import Home from './pages/Home';
 import Listings from './pages/Listings';
 import About from './pages/About';
@@ -82,7 +83,7 @@ const App: React.FC = () => {
       <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Navbar lang={language} role={role} isLoggedIn={isLoggedIn} onToggleLang={toggleLanguage} onLogout={handleLogout} />
-        <main className="flex-grow">
+        <main className="flex-grow relative">
           <Routes>
             <Route path="/" element={<Home lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             <Route path="/veiculos" element={<Listings lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
@@ -93,7 +94,6 @@ const App: React.FC = () => {
             <Route path="/blog/:id" element={<Article lang={language} />} />
             <Route path="/stands" element={<StandsList lang={language} />} />
             
-            {/* Hierarquia de stands via /stands/slug para consistência */}
             <Route path="/stands/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             
             <Route path="/dashboard" element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <StandDashboard lang={language} role={role} /> : <Navigate to="/login" />} />
@@ -111,10 +111,11 @@ const App: React.FC = () => {
             <Route path="/termos" element={<TermsOfUse lang={language} />} />
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
 
-            {/* Rota Coringa para Stands Únicos: domain.com/nome-do-stand */}
-            {/* Colocada por último para não interceptar rotas fixas */}
             <Route path="/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
           </Routes>
+          
+          {/* Widget de Suporte Global */}
+          <SupportWidget lang={language} />
         </main>
         <Footer lang={language} />
       </div>
