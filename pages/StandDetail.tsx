@@ -105,7 +105,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         </div>
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="w-32 h-32 md:w-40 md:h-40 bg-blue-600 rounded-[35px] flex items-center justify-center text-5xl md:text-6xl font-black shadow-2xl overflow-hidden">
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-blue-600 rounded-[35px] flex items-center justify-center text-5xl md:text-6xl font-black shadow-2xl overflow-hidden border-4 border-white/20">
               {standProfile.profile_image ? (
                 <img src={standProfile.profile_image} className="w-full h-full object-cover" alt="Stand Logo" />
               ) : (
@@ -127,6 +127,18 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
           </div>
         </div>
       </section>
+
+      {/* Descrição do Stand */}
+      {standProfile.description && (
+        <div className="max-w-7xl mx-auto px-4 pt-20">
+          <div className="bg-gray-50 p-8 md:p-12 rounded-[40px] border border-gray-100 shadow-sm">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4">{t.aboutStand}</h2>
+            <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-line font-medium italic">
+              "{standProfile.description}"
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-20">
         <div className="flex justify-between items-end mb-12">

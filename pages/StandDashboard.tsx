@@ -152,9 +152,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        <header className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 gap-6">
+        <header className="flex flex-col lg:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 gap-6">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg">
               {profile?.profile_image ? (
                 <img src={profile.profile_image} className="w-full h-full object-cover" alt="Logo" />
               ) : (
@@ -162,7 +162,16 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
               )}
             </div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900">{profile?.stand_name || 'Sem Nome'}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-black text-gray-900">{profile?.stand_name || 'Sem Nome'}</h1>
+                <Link 
+                  to="/cliente/editar" 
+                  className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors"
+                  title="Configurar Página"
+                >
+                  <i className="fas fa-cog text-xs"></i>
+                </Link>
+              </div>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${isApproved ? 'bg-green-500' : 'bg-amber-500'}`}></span>
                 <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">
@@ -182,6 +191,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           </div>
 
           <div className="flex gap-4">
+             <Link to="/cliente/editar" className="bg-white border border-gray-100 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-2">
+               <i className="fas fa-store"></i> Editar Página
+             </Link>
              <Link to="/anunciar" className="bg-blue-600 text-white px-6 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
                <i className="fas fa-plus"></i> Novo Anúncio
              </Link>
