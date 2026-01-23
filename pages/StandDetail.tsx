@@ -37,7 +37,6 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
           .single();
         
         if (profileError || !profileData) {
-          // Fallback para buscar por stand_name aproximado se slug falhar ou se for nome direto na URL
           const { data: fallbackData } = await supabase
             .from('profiles')
             .select('*')
@@ -60,7 +59,11 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
     };
 
     const fetchCars = async (name: string) => {
-      const { data: carsData } = await supabase.from('cars').select('*').eq('stand_name', name);
+      const { data: carsData } = await supabase
+        .from('cars')
+        .select('*')
+        .eq('stand_name', name)
+        .eq('active', true); // Apenas anúncios ativos
       if (carsData) setCars(carsData);
     };
 
@@ -86,7 +89,6 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Hierarquia de Breadcrumbs */}
       <div className="bg-gray-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center text-[10px] font-black uppercase tracking-widest text-gray-400">
           <Link to="/" className="hover:text-blue-600 transition-colors">Início</Link>
@@ -103,8 +105,12 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         </div>
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="w-32 h-32 md:w-40 md:h-40 bg-blue-600 rounded-[35px] flex items-center justify-center text-5xl md:text-6xl font-black shadow-2xl">
-              {standProfile.stand_name?.[0]}
+            <div className="w-32 h-32 md:w-40 md:h-40 bg-blue-600 rounded-[35px] flex items-center justify-center text-5xl md:text-6xl font-black shadow-2xl overflow-hidden">
+              {standProfile.profile_image ? (
+                <img src={standProfile.profile_image} className="w-full h-full object-cover" alt="Stand Logo" />
+              ) : (
+                standProfile.stand_name?.[0]
+              )}
             </div>
             <div className="text-center md:text-left space-y-4">
               <div className="flex flex-col md:flex-row items-center gap-4">
@@ -135,7 +141,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
       <div className="max-w-7xl mx-auto px-4 py-20">
         <div className="flex justify-between items-end mb-12">
           <div>
-            <h2 className="text-3xl font-black text-gray-900">Stock Disponível</h2>
+            <h2 className="text-3xl font-black text-gray-900">Anúncios Ativos</h2>
             <p className="text-gray-400 font-bold mt-1">Listagem atualizada em tempo real</p>
           </div>
         </div>
@@ -153,7 +159,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         ) : (
           <div className="text-center py-20 bg-gray-50 rounded-[50px] border border-dashed border-gray-200">
             <i className="fas fa-car-side text-4xl text-gray-200 mb-4"></i>
-            <p className="text-gray-500 font-bold">Este stand não tem viaturas ativas no momento.</p>
+            <p className="text-gray-500 font-bold">Este stand não tem anúncios ativos no momento.</p>
           </div>
         )}
       </div>

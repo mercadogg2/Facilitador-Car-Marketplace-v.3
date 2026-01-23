@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { supabase } from '../lib/supabase';
 
 interface AboutProps {
   lang: Language;
@@ -9,6 +10,21 @@ interface AboutProps {
 
 const About: React.FC<AboutProps> = ({ lang }) => {
   const t = TRANSLATIONS[lang].about;
+  const [stats, setStats] = useState({ stands: 0, cars: 0 });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const [standsRes, carsRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'stand').eq('status', 'approved'),
+        supabase.from('cars').select('id', { count: 'exact', head: true }).eq('active', true)
+      ]);
+      setStats({
+        stands: standsRes.count || 0,
+        cars: carsRes.count || 0
+      });
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div className="space-y-24 pb-20">
@@ -40,12 +56,14 @@ const About: React.FC<AboutProps> = ({ lang }) => {
             <h2 className="text-4xl font-bold mb-6">{t.historyTitle}</h2>
             <p className="text-blue-100 text-lg mb-8 leading-relaxed">{t.historyDesc}</p>
             <div className="flex gap-4">
-              {t.stats.map((s, i) => (
-                <div key={i} className="bg-white/10 rounded-2xl p-6 text-center flex-1 backdrop-blur-sm">
-                  <div className="text-3xl font-extrabold mb-1">{i === 0 ? '50+' : '100%'}</div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-blue-200">{s}</div>
-                </div>
-              ))}
+              <div className="bg-white/10 rounded-2xl p-6 text-center flex-1 backdrop-blur-sm">
+                <div className="text-3xl font-extrabold mb-1">{stats.stands > 0 ? `${stats.stands}+` : '...'}</div>
+                <div className="text-xs font-bold uppercase tracking-wider text-blue-200">{t.stats[0]}</div>
+              </div>
+              <div className="bg-white/10 rounded-2xl p-6 text-center flex-1 backdrop-blur-sm">
+                <div className="text-3xl font-extrabold mb-1">{stats.cars > 0 ? `${stats.cars}+` : '...'}</div>
+                <div className="text-xs font-bold uppercase tracking-wider text-blue-200">{lang === 'pt' ? 'Viaturas' : 'Vehicles'}</div>
+              </div>
             </div>
           </div>
           <div className="md:w-1/2">

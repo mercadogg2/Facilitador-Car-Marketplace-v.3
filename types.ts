@@ -20,6 +20,7 @@ export interface UserProfile {
   phone?: string;
   status: ProfileStatus;
   location?: string;
+  profile_image?: string; // Novo campo para foto de perfil ou logotipo
 }
 
 export interface Car {
@@ -42,6 +43,7 @@ export interface Car {
   subdomain?: string;
   created_at?: string;
   user_id?: string;
+  active?: boolean; // Novo campo para ativar/desativar anúncio
 }
 
 export interface Lead {

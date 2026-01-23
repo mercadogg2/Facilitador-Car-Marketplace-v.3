@@ -31,10 +31,9 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
   const [brands, setBrands] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
 
-  // Carregar filtros únicos das marcas e categorias disponíveis no DB
   useEffect(() => {
     const fetchMetadata = async () => {
-      const { data } = await supabase.from('cars').select('brand, category');
+      const { data } = await supabase.from('cars').select('brand, category').eq('active', true);
       if (data) {
         setBrands(Array.from(new Set(data.map(c => c.brand))));
         setCategories(Array.from(new Set(data.map(c => c.category))));
@@ -43,11 +42,10 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
     fetchMetadata();
   }, []);
 
-  // Buscar veículos com filtros aplicados no Supabase
   useEffect(() => {
     const fetchCars = async () => {
       setLoading(true);
-      let query = supabase.from('cars').select('*');
+      let query = supabase.from('cars').select('*').eq('active', true);
 
       if (searchQuery) {
         query = query.or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
@@ -70,7 +68,7 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
       setLoading(false);
     };
 
-    const timer = setTimeout(fetchCars, 300); // Debounce
+    const timer = setTimeout(fetchCars, 300);
     return () => clearTimeout(timer);
   }, [searchQuery, filters]);
 

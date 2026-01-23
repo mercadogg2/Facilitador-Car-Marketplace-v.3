@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Language, UserRole } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -14,6 +14,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   const t = TRANSLATIONS[lang].editProfile;
   const tc = TRANSLATIONS[lang].common;
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -28,7 +29,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     location: '',
     stand_name: '',
     description: '',
-    newPassword: ''
+    newPassword: '',
+    profile_image: ''
   });
 
   useEffect(() => {
@@ -57,17 +59,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
             location: profile.location || '',
             stand_name: profile.stand_name || '',
             description: profile.description || '',
-            newPassword: ''
-          });
-        } else {
-          setFormData({
-            name: user.user_metadata?.full_name || '',
-            email: user.email || '',
-            phone: user.user_metadata?.phone || '',
-            location: user.user_metadata?.location || '',
-            stand_name: user.user_metadata?.stand_name || '',
-            description: user.user_metadata?.description || '',
-            newPassword: ''
+            newPassword: '',
+            profile_image: profile.profile_image || ''
           });
         }
       } catch (err) {
@@ -87,13 +80,26 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     setIsLoggingOut(true);
     try {
       await onLogout();
-      // O App.tsx já mudará o estado de isLoggedIn para false, o que fará este componente desmontar
-      // O navigate aqui é um fallback de segurança
       navigate('/', { replace: true });
     } catch (err) {
       console.error("Erro ao processar logout:", err);
       localStorage.clear();
       window.location.href = '/#/';
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1 * 1024 * 1024) {
+        setError(lang === 'pt' ? 'A imagem deve ser menor que 1MB.' : 'Image must be smaller than 1MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, profile_image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -117,6 +123,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           phone: formData.phone,
           stand_name: formData.stand_name,
           description: formData.description,
+          profile_image: formData.profile_image
         }
       };
       
@@ -133,7 +140,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           full_name: formData.name,
           phone: formData.phone,
           stand_name: formData.stand_name,
-          description: formData.description
+          description: formData.description,
+          profile_image: formData.profile_image
         })
         .eq('id', user.id);
 
@@ -226,6 +234,37 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
               <i className="fas fa-user-circle mr-3 text-blue-600"></i>
               {t.personalInfo}
             </h3>
+
+            {/* Upload de Imagem de Perfil */}
+            <div className="flex flex-col items-center mb-10">
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-3xl overflow-hidden bg-gray-100 border-4 border-white shadow-xl flex items-center justify-center text-blue-600 font-black text-4xl">
+                  {formData.profile_image ? (
+                    <img src={formData.profile_image} className="w-full h-full object-cover" alt="Profile" />
+                  ) : (
+                    formData.name ? formData.name[0].toUpperCase() : 'U'
+                  )}
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors border-4 border-white"
+                >
+                  <i className="fas fa-camera"></i>
+                </button>
+              </div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-4">
+                {userRole === UserRole.STAND ? 'Logotipo do Stand' : 'Foto de Perfil'}
+              </p>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/*" 
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">{t.fields.name}</label>

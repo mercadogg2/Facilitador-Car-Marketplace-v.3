@@ -1,39 +1,4 @@
 
-import { Car, BlogPost } from './types';
-
-export const MOCK_CARS: Car[] = [
-  {
-    id: '1',
-    brand: 'BMW',
-    model: '320i M Sport',
-    year: 2024,
-    price: 320000,
-    mileage: 0,
-    fuel: 'Gasolina',
-    transmission: 'Automático',
-    image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800',
-    description: 'Sedã de luxo com performance desportiva e tecnologia de ponta. Inclui Pack M Sport, teto de abrir panorâmico e sistema de som Harman Kardon.',
-    stand_name: 'Auto Premium Lisboa',
-    verified: true,
-    location: 'Lisboa',
-    category: 'Sedan',
-    subdomain: 'bmw-320i-lisboa'
-  }
-];
-
-export const MOCK_BLOG: BlogPost[] = [
-  {
-    id: 'b1',
-    title: 'Como comprar carro usado com segurança em 2026',
-    excerpt: 'Dicas essenciais para evitar fraudes e garantir o melhor negócio no mercado de usados.',
-    content: `Comprar um carro usado pode ser um desafio, mas em 2026 a tecnologia está do nosso lado. A primeira regra é verificar o histórico de manutenção digital. No Facilitador Car, todos os nossos stands parceiros fornecem relatórios transparentes. Verifique sempre o estado das baterias em veículos eletrificados e não hesite em solicitar um test-drive em diferentes condições de estrada.`,
-    author: 'Equipa Facilitador Car',
-    date: '2024-05-15',
-    image: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?auto=format&fit=crop&q=80&w=800',
-    reading_time: '5 min'
-  }
-];
-
 export const TRANSLATIONS = {
   pt: {
     nav: { home: 'Início', vehicles: 'Veículos', stands: 'Stands', about: 'Sobre', blog: 'Blog', dashboard: 'Stand', client: 'Área Cliente', admin: 'Admin', login: 'Entrar', logout: 'Sair' },
@@ -56,12 +21,12 @@ export const TRANSLATIONS = {
       title: 'Stands Certificados',
       subtitle: 'Conheça a nossa rede de parceiros rigorosamente selecionados.',
       searchPlaceholder: 'Pesquisar por nome ou cidade...',
-      viewStock: 'Ver Stock',
+      viewStock: 'Ver Anúncios',
       verifiedPartner: 'Parceiro Certificado',
       noResults: 'Nenhum stand encontrado.'
     },
     standDetail: {
-      viewStock: 'Ver Stock Completo',
+      viewStock: 'Ver Todos os Anúncios',
       totalVehicles: 'veículos disponíveis',
       since: 'Parceiro desde',
       location: 'Localização',
@@ -151,14 +116,16 @@ export const TRANSLATIONS = {
       maxPrice: 'Preço Máximo',
       clearFilters: 'Limpar Filtros',
       noResults: 'Nenhum veículo encontrado',
-      found: 'Veículos encontrados',
+      found: 'Anúncios encontrados',
       sortBy: 'Ordenar por',
       recent: 'Mais recentes',
       back: 'Voltar',
       share: 'Partilhar',
       delete: 'Remover',
       confirmDelete: 'Tem a certeza?',
-      actions: 'Ações'
+      actions: 'Ações',
+      active: 'Ativo',
+      inactive: 'Inativo'
     },
     detail: {
       characteristics: 'Características',
@@ -198,12 +165,12 @@ export const TRANSLATIONS = {
       title: 'Certified Dealers',
       subtitle: 'Our network of strictly selected partners.',
       searchPlaceholder: 'Search name or city...',
-      viewStock: 'View Stock',
+      viewStock: 'View Ads',
       verifiedPartner: 'Certified Partner',
       noResults: 'No dealers found.'
     },
     standDetail: {
-      viewStock: 'View Full Stock',
+      viewStock: 'View All Ads',
       totalVehicles: 'vehicles available',
       since: 'Partner since',
       location: 'Location',
@@ -293,14 +260,16 @@ export const TRANSLATIONS = {
       maxPrice: 'Max Price',
       clearFilters: 'Clear Filters',
       noResults: 'No vehicles found',
-      found: 'Vehicles found',
+      found: 'Ads found',
       sortBy: 'Sort by',
       recent: 'Recent',
       back: 'Back',
       share: 'Share',
       delete: 'Delete',
       confirmDelete: 'Are you sure?',
-      actions: 'Actions'
+      actions: 'Actions',
+      active: 'Active',
+      inactive: 'Inactive'
     },
     detail: {
       characteristics: 'Key Features',

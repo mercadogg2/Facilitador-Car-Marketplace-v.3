@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Language, Car } from '../types';
-import { TRANSLATIONS, MOCK_CARS } from '../constants';
+import { TRANSLATIONS } from '../constants';
 import CarCard from '../components/CarCard';
 import LeadForm from '../components/LeadForm';
 import { supabase } from '../lib/supabase';
@@ -31,15 +31,14 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
         const { data, error } = await supabase
           .from('cars')
           .select('*')
+          .eq('active', true)
           .limit(4);
         
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           setFeaturedCars(data);
-        } else {
-          setFeaturedCars(MOCK_CARS);
         }
       } catch (err) {
-        setFeaturedCars(MOCK_CARS);
+        console.error("Error fetching featured cars:", err);
       }
     };
     fetchFeatured();
@@ -53,18 +52,15 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
           const { data, error } = await supabase
             .from('cars')
             .select('*')
+            .eq('active', true)
             .or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`)
             .limit(5);
           
           if (!error && data) {
             setSuggestions(data);
-          } else {
-            setSuggestions(MOCK_CARS.filter(c => 
-              c.brand.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              c.model.toLowerCase().includes(searchQuery.toLowerCase())
-            ).slice(0, 5));
           }
         } catch (err) {
+          console.error("Error fetching suggestions:", err);
           setSuggestions([]);
         }
         setIsSearching(false);
@@ -180,31 +176,33 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">{t.featured}</h2>
-            <p className="text-gray-500 mt-2">{lang === 'pt' ? 'Escolhas exclusivas dos nossos stands certificados.' : 'Exclusive picks from our certified dealerships.'}</p>
+      {featuredCars.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">{t.featured}</h2>
+              <p className="text-gray-500 mt-2">{lang === 'pt' ? 'Escolhas exclusivas dos nossos stands certificados.' : 'Exclusive picks from our certified dealerships.'}</p>
+            </div>
+            <Link to="/veiculos" className="text-blue-600 font-bold hover:text-blue-700 flex items-center group">
+              {t.viewAll}
+              <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+            </Link>
           </div>
-          <Link to="/veiculos" className="text-blue-600 font-bold hover:text-blue-700 flex items-center group">
-            {t.viewAll}
-            <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-          </Link>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {featuredCars.map(car => (
-            <CarCard 
-              key={car.id} 
-              car={car} 
-              lang={lang} 
-              onToggleFavorite={onToggleFavorite} 
-              isFavorite={favorites.includes(car.id)}
-              onSelect={setSelectedCar}
-            />
-          ))}
-        </div>
-      </section>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {featuredCars.map(car => (
+              <CarCard 
+                key={car.id} 
+                car={car} 
+                lang={lang} 
+                onToggleFavorite={onToggleFavorite} 
+                isFavorite={favorites.includes(car.id)}
+                onSelect={setSelectedCar}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="bg-white py-20 border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

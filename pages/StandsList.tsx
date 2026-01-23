@@ -48,7 +48,8 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
 
           const { data: carData } = await supabase
             .from('cars')
-            .select('stand_name');
+            .select('stand_name')
+            .eq('active', true);
           
           if (carData) {
             const carCounts: Record<string, number> = {};
@@ -112,6 +113,7 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {filteredStands.map(stand => {
               const standUrlSlug = stand.slug || slugify(stand.stand_name || '');
+              const joinYear = new Date(stand.created_at).getFullYear();
               return (
                 <Link 
                   key={stand.id} 
@@ -119,8 +121,12 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
                   className="group bg-white p-10 rounded-[50px] shadow-sm hover:shadow-2xl hover:-translate-y-2 border border-gray-100 transition-all duration-500"
                 >
                   <div className="flex items-center gap-8 mb-10">
-                    <div className="w-24 h-24 bg-blue-600 rounded-[30px] flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-blue-100 group-hover:scale-110 transition-transform">
-                      {(stand.stand_name || 'S')[0]}
+                    <div className="w-24 h-24 bg-blue-600 rounded-[30px] flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-blue-100 group-hover:scale-110 transition-transform overflow-hidden">
+                      {stand.profile_image ? (
+                        <img src={stand.profile_image} className="w-full h-full object-cover" alt="Logo" />
+                      ) : (
+                        (stand.stand_name || 'S')[0]
+                      )}
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
@@ -138,7 +144,7 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
                   <div className="grid grid-cols-2 gap-6 mb-10">
                     <div className="bg-gray-50 p-6 rounded-[30px] border border-gray-100">
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
-                        Viaturas
+                        {tc.found}
                       </p>
                       <p className="text-xl font-black text-gray-900">
                         {counts[stand.stand_name || ''] || 0}
@@ -149,7 +155,7 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
                         Membro
                       </p>
                       <p className="text-xl font-black text-gray-900">
-                        2024
+                        {joinYear}
                       </p>
                     </div>
                   </div>

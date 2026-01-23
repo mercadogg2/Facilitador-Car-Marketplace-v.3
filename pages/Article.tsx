@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Language, BlogPost } from '../types';
-import { TRANSLATIONS, MOCK_BLOG } from '../constants';
+import { TRANSLATIONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
 interface ArticleProps {
@@ -37,25 +37,12 @@ const Article: React.FC<ArticleProps> = ({ lang }) => {
             .neq('id', id)
             .limit(2);
           
-          if (related && related.length > 0) {
+          if (related) {
             setRelatedArticles(related);
-          } else {
-            setRelatedArticles(MOCK_BLOG.filter(b => b.id !== id).slice(0, 2));
-          }
-        } else {
-          // Fallback local
-          const localMatch = MOCK_BLOG.find(b => b.id === id);
-          if (localMatch) {
-            setArticle(localMatch);
-            setRelatedArticles(MOCK_BLOG.filter(b => b.id !== id).slice(0, 2));
           }
         }
       } catch (err) {
-        const localMatch = MOCK_BLOG.find(b => b.id === id);
-        if (localMatch) {
-          setArticle(localMatch);
-          setRelatedArticles(MOCK_BLOG.filter(b => b.id !== id).slice(0, 2));
-        }
+        console.error("Error fetching article:", err);
       } finally {
         setLoading(false);
       }

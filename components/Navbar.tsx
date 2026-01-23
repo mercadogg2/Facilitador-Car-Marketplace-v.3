@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Language, UserRole } from '../types';
+import { Language, UserRole, UserProfile } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { supabase } from '../lib/supabase';
 
 interface NavbarProps {
   lang: Language;
@@ -17,11 +18,32 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
   const location = useLocation();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   // Fecha o menu sempre que a rota mudar
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
+
+  // Carrega perfil para exibir avatar
+  useEffect(() => {
+    if (isLoggedIn) {
+      const fetchProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('profile_image, full_name, stand_name')
+            .eq('id', user.id)
+            .single();
+          if (data) setProfile(data as any);
+        }
+      };
+      fetchProfile();
+    } else {
+      setProfile(null);
+    }
+  }, [isLoggedIn, location.pathname]);
 
   // Impede o scroll do fundo quando o menu está aberto e lida com viewport mobile
   useEffect(() => {
@@ -95,8 +117,14 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
                 </Link>
               ) : (
                 <div className="flex items-center gap-3">
-                  <Link to={role === UserRole.ADMIN ? '/admin' : role === UserRole.STAND ? '/dashboard' : '/cliente'} className="bg-gray-900 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 flex items-center gap-2">
-                    <i className="fas fa-user-circle"></i>
+                  <Link to={role === UserRole.ADMIN ? '/admin' : role === UserRole.STAND ? '/dashboard' : '/cliente'} className="bg-gray-900 text-white pl-3 pr-5 py-2 rounded-xl text-sm font-bold hover:bg-gray-800 flex items-center gap-2 group transition-all">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center text-xs">
+                      {profile?.profile_image ? (
+                        <img src={profile.profile_image} className="w-full h-full object-cover" alt="Avatar" />
+                      ) : (
+                        <i className="fas fa-user-circle"></i>
+                      )}
+                    </div>
                     {role === UserRole.ADMIN ? t.admin : role === UserRole.STAND ? t.dashboard : t.client}
                   </Link>
                   <button onClick={handleLogoutClick} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all">
@@ -123,25 +151,22 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
         </div>
       </nav>
 
-      {/* COMPONENTE DE MENU MOBILE - ESTRUTURA REFORÇADA */}
+      {/* COMPONENTE DE MENU MOBILE */}
       <div 
         className={`lg:hidden fixed inset-0 z-[9999] transition-all duration-500 ${
           isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Backdrop escuro com desfoque */}
         <div 
           className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity duration-500"
           onClick={() => setIsMenuOpen(false)}
         />
         
-        {/* Painel Lateral usando dvh para altura real do dispositivo */}
         <div 
           className={`absolute top-0 right-0 w-[85%] max-w-[320px] h-[100dvh] bg-white shadow-2xl flex flex-col transform transition-transform duration-500 cubic-bezier(0.4, 0, 0.2, 1) ${
             isMenuOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          {/* Header do Menu Fixo no Topo */}
           <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white shrink-0">
             <img 
               src="https://facilitadorcar.com/wp-content/uploads/2026/01/logotipo-centralizado-colorido-sobre-claro-scaled.png" 
@@ -157,7 +182,6 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
             </button>
           </div>
           
-          {/* Área de Links com Scroll Suave e Independente */}
           <div className="flex-grow py-8 px-6 space-y-2 overflow-y-auto scroll-smooth">
             {navLinks.map((link) => (
               <Link 
@@ -175,7 +199,6 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
             ))}
           </div>
 
-          {/* Rodapé do Menu Fixo na Base */}
           <div className="p-8 border-t border-gray-100 bg-gray-50/80 backdrop-blur-md space-y-4 shrink-0">
             {!isLoggedIn ? (
               <Link 
@@ -190,8 +213,15 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
                 <Link 
                   to={role === UserRole.ADMIN ? '/admin' : role === UserRole.STAND ? '/dashboard' : '/cliente'} 
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-center block active:scale-[0.98] transition-all"
+                  className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
                 >
+                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
+                    {profile?.profile_image ? (
+                      <img src={profile.profile_image} className="w-full h-full object-cover" alt="Avatar" />
+                    ) : (
+                      <i className="fas fa-user-circle"></i>
+                    )}
+                  </div>
                   {role === UserRole.ADMIN ? t.admin : role === UserRole.STAND ? t.dashboard : t.client}
                 </Link>
                 <button 
@@ -202,15 +232,6 @@ const Navbar: React.FC<NavbarProps> = ({ lang, role, isLoggedIn, onToggleLang, o
                 </button>
               </div>
             )}
-            <div className="pt-4 flex flex-col items-center">
-              <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">
-                © 2026 Facilitador Car
-              </p>
-              <div className="flex gap-4 mt-3 text-gray-300">
-                <i className="fab fa-instagram text-sm"></i>
-                <i className="fab fa-facebook text-sm"></i>
-              </div>
-            </div>
           </div>
         </div>
       </div>

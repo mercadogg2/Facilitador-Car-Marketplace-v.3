@@ -139,7 +139,8 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
         images: images,
         stand_name: user.user_metadata?.stand_name || 'Particular',
         user_id: user.id,
-        verified: false 
+        verified: false,
+        active: true // Importante: Garante que o anúncio seja criado visível
       };
 
       const { error: insertError } = await supabase.from('cars').insert([carData]);

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Language, BlogPost } from '../types';
-import { TRANSLATIONS, MOCK_BLOG } from '../constants';
+import { TRANSLATIONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
 interface BlogProps {
@@ -11,8 +11,7 @@ interface BlogProps {
 
 const Blog: React.FC<BlogProps> = ({ lang }) => {
   const t = TRANSLATIONS[lang].blog;
-  // Inicializamos com MOCK_BLOG para visualização imediata
-  const [posts, setPosts] = useState<BlogPost[]>(MOCK_BLOG);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,27 +24,10 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
           .order('date', { ascending: false });
         
         if (!error && data) {
-          // MESCLAGEM: Mantemos os dados do Supabase e adicionamos os MOCK_BLOG que não existem no DB
-          const dbPosts: BlogPost[] = data;
-          const mergedPosts = [...dbPosts];
-          
-          MOCK_BLOG.forEach(mockPost => {
-            const exists = mergedPosts.some(p => p.id === mockPost.id || p.title === mockPost.title);
-            if (!exists) {
-              mergedPosts.push(mockPost);
-            }
-          });
-
-          // Ordenar por data (mais recentes primeiro)
-          mergedPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setPosts(mergedPosts);
-        } else {
-          // Se houver erro ou tabela vazia, garantimos que os 7 locais apareçam
-          setPosts(MOCK_BLOG);
+          setPosts(data);
         }
       } catch (err) {
         console.error("Erro ao buscar blog posts:", err);
-        setPosts(MOCK_BLOG);
       } finally {
         setLoading(false);
       }
@@ -60,11 +42,11 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
         <p className="text-xl text-gray-500 max-w-2xl mx-auto">{t.subtitle}</p>
       </div>
 
-      {loading && posts.length === 0 ? (
+      {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ) : (
+      ) : posts.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {posts.map(post => (
             <Link to={`/blog/${post.id}`} key={post.id} className="group cursor-pointer block animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -106,6 +88,10 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
               </article>
             </Link>
           ))}
+        </div>
+      ) : (
+        <div className="text-center py-20 bg-white rounded-[40px] border border-dashed border-gray-200">
+          <p className="text-gray-500 font-bold">Nenhum artigo publicado ainda.</p>
         </div>
       )}
 

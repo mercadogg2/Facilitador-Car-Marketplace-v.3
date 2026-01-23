@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Language, Car } from '../types';
+// Added Link to the imports from react-router-dom
+import { useNavigate, Link } from 'react-router-dom';
+import { Language, Car, UserProfile } from '../types';
 import { TRANSLATIONS } from '../constants';
 import CarCard from '../components/CarCard';
 import { supabase } from '../lib/supabase';
@@ -17,6 +18,22 @@ const UserArea: React.FC<UserAreaProps> = ({ lang, favorites, onLogout }) => {
   const navigate = useNavigate();
   const [favoriteCars, setFavoriteCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (data) setProfile(data);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -48,13 +65,19 @@ const UserArea: React.FC<UserAreaProps> = ({ lang, favorites, onLogout }) => {
     }
   };
 
+  const memberDate = profile?.created_at 
+    ? new Date(profile.created_at).toLocaleDateString(lang === 'pt' ? 'pt-PT' : 'en-US', { month: 'long', year: 'numeric' })
+    : '...';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-12 flex flex-col md:flex-row items-center gap-8">
-        <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">U</div>
+        <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+          {(profile?.full_name || 'U')[0]}
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t.greeting}</h1>
-          <p className="text-gray-500">{t.memberSince} Outubro 2024</p>
+          <h1 className="text-3xl font-bold text-gray-900">{profile?.full_name || t.greeting}</h1>
+          <p className="text-gray-500">{t.memberSince} {memberDate}</p>
         </div>
         <div className="md:ml-auto flex gap-4">
           <button 
@@ -95,9 +118,10 @@ const UserArea: React.FC<UserAreaProps> = ({ lang, favorites, onLogout }) => {
           <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
             <h3 className="text-xl font-bold text-gray-900 mb-2">{t.emptyTitle}</h3>
             <p className="text-gray-500">{t.emptyDesc}</p>
-            <a href="#/veiculos" className="inline-block mt-6 bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all">
+            {/* Fixed: Link component now has access to its definition via top-level import */}
+            <Link to="/veiculos" className="inline-block mt-6 bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all">
               {t.explore}
-            </a>
+            </Link>
           </div>
         )}
       </div>
