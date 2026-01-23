@@ -32,6 +32,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         return;
       }
 
+      // Buscar perfil completo atualizado
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')

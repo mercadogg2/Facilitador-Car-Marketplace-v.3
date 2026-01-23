@@ -9,22 +9,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 /**
  * 🚀 SCRIPT DE CONFIGURAÇÃO (Execute no SQL Editor do Supabase):
  * 
- * -- 1. Tabela de Carros (Anúncios)
- * ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+ * -- 1. Garantir que a tabela profiles tem as colunas necessárias
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS description TEXT;
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_image TEXT;
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS slug TEXT;
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stand_name TEXT;
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS location TEXT;
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
  * 
- * -- 2. Atualizar políticas para respeitar a visibilidade
- * -- Visitantes só podem ver anúncios ativos
- * DROP POLICY IF EXISTS "allow_public_select_cars" ON public.cars;
- * CREATE POLICY "allow_public_select_cars" ON public.cars 
- * FOR SELECT TO anon, authenticated 
- * USING (active = true OR auth.uid() = user_id);
+ * -- 2. Configurar RLS para permitir que utilizadores editem os seus próprios perfis
+ * CREATE POLICY "Users can update own profile" ON public.profiles
+ * FOR UPDATE USING (auth.uid() = id);
  * 
- * -- 3. Manutenção de Stands (Dono do anúncio)
- * DROP POLICY IF EXISTS "Stands can manage own cars" ON public.cars;
- * CREATE POLICY "Stands can manage own cars" ON public.cars
- * FOR ALL TO authenticated
- * USING (auth.uid() = user_id)
- * WITH CHECK (auth.uid() = user_id);
+ * -- 3. Permitir inserção inicial se não existir
+ * CREATE POLICY "Users can insert own profile" ON public.profiles
+ * FOR INSERT WITH CHECK (auth.uid() = id);
  */
 
 export const checkSupabaseConnection = async () => {
