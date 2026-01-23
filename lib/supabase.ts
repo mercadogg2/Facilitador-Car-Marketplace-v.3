@@ -7,42 +7,37 @@ export const supabaseAnonKey = 'sb_publishable_o-wZ9sIKkceI0RfEJ4doRw_wXwVvRv7';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * 🚀 EXECUTE ESTE SCRIPT NO SQL EDITOR SE OS LEADS OU ELIMINAÇÃO NÃO FUNCIONAREM:
+ * 🚀 SCRIPT DE CORREÇÃO PARA REMOÇÃO DEFINITIVA (Execute no SQL Editor do Supabase):
  * 
- * -- 1. Garantir que as tabelas existem
- * CREATE TABLE IF NOT EXISTS public.leads (
- *   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *   created_at timestamptz DEFAULT now(),
- *   customer_name text NOT NULL,
- *   customer_email text NOT NULL,
- *   customer_phone text NOT NULL,
- *   message text,
- *   status text DEFAULT 'Pendente',
- *   car_id text,
- *   stand_name text
- * );
- * 
- * -- 2. Políticas para LEADS
- * ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
- * DROP POLICY IF EXISTS "allow_anon_insert" ON public.leads;
- * DROP POLICY IF EXISTS "allow_auth_select" ON public.leads;
- * DROP POLICY IF EXISTS "allow_auth_delete" ON public.leads;
- * CREATE POLICY "allow_anon_insert" ON public.leads FOR INSERT TO anon, authenticated WITH CHECK (true);
- * CREATE POLICY "allow_auth_select" ON public.leads FOR SELECT TO authenticated USING (true);
- * CREATE POLICY "allow_auth_delete" ON public.leads FOR DELETE TO authenticated USING (true);
- * 
- * -- 3. Políticas para CARS (Eliminação Definitiva)
+ * -- 1. Habilitar RLS na tabela de carros (se não estiver)
  * ALTER TABLE public.cars ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- 2. Remover políticas antigas para evitar conflitos
  * DROP POLICY IF EXISTS "allow_public_select_cars" ON public.cars;
  * DROP POLICY IF EXISTS "allow_auth_all_cars" ON public.cars;
+ * DROP POLICY IF EXISTS "Stands can delete own cars" ON public.cars;
+ * DROP POLICY IF EXISTS "Admins can delete any car" ON public.cars;
  * 
- * -- Qualquer um vê os carros
- * CREATE POLICY "allow_public_select_cars" ON public.cars FOR SELECT TO anon, authenticated USING (true);
- * -- Autenticados podem fazer tudo (CRUD)
- * CREATE POLICY "allow_auth_all_cars" ON public.cars FOR ALL TO authenticated USING (true) WITH CHECK (true);
+ * -- 3. Criar nova política de leitura pública
+ * CREATE POLICY "allow_public_select_cars" ON public.cars 
+ * FOR SELECT TO anon, authenticated 
+ * USING (true);
  * 
- * -- 4. Privilégios Globais
- * GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+ * -- 4. Criar política de controle total para o dono do anúncio
+ * CREATE POLICY "Stands can manage own cars" ON public.cars
+ * FOR ALL TO authenticated
+ * USING (auth.uid() = user_id)
+ * WITH CHECK (auth.uid() = user_id);
+ * 
+ * -- 5. Criar política especial para o Admin (email fixo)
+ * CREATE POLICY "Admins can manage everything" ON public.cars
+ * FOR ALL TO authenticated
+ * USING (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt');
+ * 
+ * -- 6. Otimizar tabela de Leads para não bloquear deleção (Remover restrições de FK se houver)
+ * -- Se 'car_id' for uma Foreign Key, ela precisa de ON DELETE CASCADE:
+ * -- ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_car_id_fkey;
+ * -- ALTER TABLE public.leads ADD CONSTRAINT leads_car_id_fkey FOREIGN KEY (car_id) REFERENCES public.cars(id) ON DELETE CASCADE;
  */
 
 export const checkSupabaseConnection = async () => {

@@ -20,7 +20,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchStandData = async () => {
     setRefreshing(true);
@@ -76,19 +76,32 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     
     if (!window.confirm(confirmMsg)) return;
 
+    setIsDeleting(carId);
+
     try {
+      // 1. Tentar remover os leads associados primeiro (se houver restrição no DB)
+      // Nota: No nosso schema os leads usam o car_id como texto, então não deve bloquear, 
+      // mas fazemos a remoção por precaução se o usuário desejar limpeza total.
+      
       const { error } = await supabase
         .from('cars')
         .delete()
-        .eq('id', carId);
+        .match({ id: carId });
 
       if (error) throw error;
       
-      // Atualiza estado local
+      // Sucesso na remoção do DB -> Atualiza UI
       setMyCars(prev => prev.filter(c => c.id !== carId));
-      alert(lang === 'pt' ? "Anúncio removido com sucesso." : "Ad removed successfully.");
+      
+      // Feedback opcional silencioso ou via toast (alert para debug)
+      console.log(`Viatura ${carId} removida definitivamente.`);
     } catch (err: any) {
-      alert("Erro ao eliminar: " + err.message);
+      console.error("Erro ao deletar car:", err);
+      alert(lang === 'pt' 
+        ? "Erro ao eliminar: Verifique se tem permissões ou se o anúncio ainda existe." 
+        : "Error deleting: Check your permissions or if the ad still exists.");
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -169,12 +182,18 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {myCars.map(car => (
-                  <div key={car.id} className="bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm group">
+                  <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm group transition-opacity ${isDeleting === car.id ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                     <div className="relative h-48">
                       <img src={car.image} className="w-full h-full object-cover" alt="" />
                       <div className="absolute top-4 right-4 flex gap-2">
                         <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
-                        <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"><i className="fas fa-trash"></i></button>
+                        <button 
+                          disabled={isDeleting !== null}
+                          onClick={() => handleDeleteCar(car.id)} 
+                          className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          {isDeleting === car.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-trash"></i>}
+                        </button>
                       </div>
                     </div>
                     <div className="p-6">

@@ -18,6 +18,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -66,17 +67,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
   const handleDeleteAd = async (adId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "⚠️ ATENÇÃO: Deseja eliminar este ANÚNCIO definitivamente? Esta ação é irreversível." 
-      : "⚠️ WARNING: Do you want to delete this AD permanently? This action cannot be undone.";
+      ? "⚠️ ATENÇÃO: Deseja eliminar este ANÚNCIO definitivamente do sistema? Esta ação é irreversível." 
+      : "⚠️ WARNING: Do you want to delete this AD permanently from the system? This action cannot be undone.";
     
     if (!window.confirm(confirmMsg)) return;
 
+    setIsDeletingId(adId);
+
     try {
-      const { error } = await supabase.from('cars').delete().eq('id', adId);
+      // Deletar usando match explícito
+      const { error } = await supabase
+        .from('cars')
+        .delete()
+        .match({ id: adId });
+
       if (error) throw error;
+      
+      // Atualizar estado local para refletir a mudança
       setAds(prev => prev.filter(a => a.id !== adId));
+      console.log(`Anúncio ${adId} removido com sucesso.`);
     } catch (err: any) {
-      alert("Erro ao eliminar anúncio: " + err.message);
+      console.error("Admin Delete Ad Error:", err);
+      alert(lang === 'pt' ? "Falha ao eliminar anúncio no servidor." : "Failed to delete ad on server.");
+    } finally {
+      setIsDeletingId(null);
     }
   };
 
@@ -88,7 +102,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      // Nota: Idealmente removeríamos os anúncios deste user também se houvesse Cascade no DB
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
       if (error) throw error;
       setUsers(prev => prev.filter(u => u.id !== userId));
@@ -338,7 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredAds.map(ad => (
-                    <tr key={ad.id} className="hover:bg-slate-50/50">
+                    <tr key={ad.id} className={`hover:bg-slate-50/50 transition-opacity ${isDeletingId === ad.id ? 'opacity-40' : 'opacity-100'}`}>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
                           <img src={ad.image} className="w-14 h-10 object-cover rounded-lg border border-slate-100" />
@@ -361,11 +374,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                             <i className="fas fa-eye text-xs"></i>
                           </button>
                           <button 
+                            disabled={isDeletingId !== null}
                             onClick={() => handleDeleteAd(ad.id)} 
                             className="w-8 h-8 bg-white text-slate-300 border border-slate-100 rounded-lg hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
                             title="Apagar Anúncio"
                           >
-                            <i className="fas fa-trash text-xs"></i>
+                            {isDeletingId === ad.id ? <i className="fas fa-circle-notch animate-spin text-xs"></i> : <i className="fas fa-trash text-xs"></i>}
                           </button>
                         </div>
                       </td>
