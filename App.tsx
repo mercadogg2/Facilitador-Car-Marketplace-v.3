@@ -45,37 +45,55 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
-          const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
-          setRole(finalRole);
-          setIsLoggedIn(true);
-        }
-      } catch (e) {
-        console.warn("Supabase session check failed.");
+    // 1. Verificar sessão inicial
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
+        const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
+        setRole(finalRole);
+        setIsLoggedIn(true);
       }
       setIsLoading(false);
     };
-    checkUser();
+    checkSession();
+
+    // 2. Escutar mudanças de autenticação em tempo real
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
+        const finalRole = session.user.email === 'admin@facilitadorcar.pt' ? UserRole.ADMIN : userRole;
+        setRole(finalRole);
+        setIsLoggedIn(true);
+      } else {
+        setRole(UserRole.VISITOR);
+        setIsLoggedIn(false);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const toggleLanguage = () => setLanguage(prev => prev === 'pt' ? 'en' : 'pt');
   const handleToggleFavorite = (id: string) => setFavorites(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]);
   const handleLogin = (userRole: UserRole) => { setRole(userRole); setIsLoggedIn(true); };
+  
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.clear();
     setIsLoggedIn(false);
     setRole(UserRole.VISITOR);
+    // Redirecionamento suave sem reload forçado se possível
     window.location.href = '/#/';
-    window.location.reload();
   };
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-white"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (
@@ -97,7 +115,7 @@ const App: React.FC = () => {
             <Route path="/stands/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             
             <Route path="/dashboard" element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <StandDashboard lang={language} role={role} /> : <Navigate to="/login" />} />
-            <Route path="/anunciar" element={isLoggedIn && role === UserRole.STAND ? <CreateAd lang={language} /> : <Navigate to="/login" />} />
+            <Route path="/anunciar" element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <CreateAd lang={language} /> : <Navigate to="/login" />} />
             <Route path="/editar-anuncio/:id" element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <EditAd lang={language} /> : <Navigate to="/login" />} />
             <Route path="/admin" element={isLoggedIn && role === UserRole.ADMIN ? <AdminDashboard lang={language} role={role} /> : <Navigate to="/admin/login" />} />
             <Route path="/cliente" element={isLoggedIn ? <UserArea lang={language} favorites={favorites} onLogout={handleLogout} /> : <Navigate to="/login" />} />
@@ -111,10 +129,10 @@ const App: React.FC = () => {
             <Route path="/termos" element={<TermsOfUse lang={language} />} />
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
 
+            {/* Catch-all para slugs de stand amigáveis */}
             <Route path="/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
           </Routes>
           
-          {/* Widget de Suporte Global */}
           <SupportWidget lang={language} />
         </main>
         <Footer lang={language} />

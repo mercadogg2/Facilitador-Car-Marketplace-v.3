@@ -28,6 +28,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   const tc = TRANSLATIONS[lang].common;
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -50,25 +51,32 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        // Usar getSession para ser mais rápido na transição entre páginas
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
           navigate('/login');
           return;
         }
 
-        const role = user.user_metadata?.role || UserRole.VISITOR;
+        const role = session.user.user_metadata?.role || UserRole.VISITOR;
         setUserRole(role);
 
-        const { data: profile } = await supabase
+        // Buscar dados do perfil na tabela profiles
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', session.user.id)
           .single();
+
+        if (profileError) {
+          console.warn("Erro ao carregar perfil da tabela, tentando recuperar do user_metadata.");
+        }
 
         if (profile) {
           setFormData({
             name: profile.full_name || '',
-            email: profile.email || '',
+            email: profile.email || session.user.email || '',
             phone: profile.phone || '',
             location: profile.location || '',
             stand_name: profile.stand_name || '',
@@ -77,9 +85,17 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
             profile_image: profile.profile_image || '',
             slug: profile.slug || ''
           });
+        } else {
+          // Fallback se o perfil ainda não existir na tabela
+          setFormData(prev => ({
+            ...prev,
+            name: session.user.user_metadata?.full_name || '',
+            email: session.user.email || '',
+            stand_name: session.user.user_metadata?.stand_name || ''
+          }));
         }
       } catch (err) {
-        console.error("Erro ao carregar perfil:", err);
+        console.error("Erro fatal ao carregar perfil:", err);
       } finally {
         setLoading(false);
       }
@@ -89,8 +105,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   }, [navigate]);
 
   const handleLogoutClick = async () => {
-    const confirmMsg = lang === 'pt' ? 'Tem a certeza que deseja sair?' : 'Are you sure you want to logout?';
-    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm(lang === 'pt' ? 'Tem a certeza que deseja sair?' : 'Are you sure you want to logout?')) return;
     
     setIsLoggingOut(true);
     try {
@@ -98,8 +113,6 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
       navigate('/', { replace: true });
     } catch (err) {
       console.error("Erro ao processar logout:", err);
-      localStorage.clear();
-      window.location.href = '/#/';
     }
   };
 
@@ -129,8 +142,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     setError(null);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Não autenticado.");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Sessão expirada ou inválida.");
 
       const newSlug = userRole === UserRole.STAND ? slugify(formData.stand_name) : formData.slug;
 
@@ -140,8 +153,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           full_name: formData.name,
           phone: formData.phone,
           stand_name: formData.stand_name,
-          slug: newSlug,
-          role: userRole
+          slug: newSlug
         }
       };
       
@@ -152,7 +164,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
       const { error: authError } = await supabase.auth.updateUser(authUpdates);
       if (authError) throw authError;
 
-      // 2. Atualizar Tabela de Perfis (Onde a página de detalhe lê)
+      // 2. Atualizar Tabela de Perfis
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -164,18 +176,19 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           location: formData.location,
           slug: newSlug
         })
-        .eq('id', user.id);
+        .eq('id', session.user.id);
 
       if (profileError) throw profileError;
 
       setIsSuccess(true);
       setTimeout(() => {
-        if (userRole === UserRole.STAND) navigate('/dashboard');
+        if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
         else navigate('/cliente');
       }, 2000);
 
     } catch (err: any) {
-      setError(err.message);
+      console.error("Erro ao gravar perfil:", err);
+      setError(err.message || "Erro desconhecido ao gravar dados.");
     } finally {
       setIsSubmitting(false);
     }
@@ -189,27 +202,13 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     );
   }
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="bg-white p-12 rounded-[40px] shadow-2xl text-center max-w-md w-full animate-in zoom-in duration-300">
-          <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 text-4xl">
-            <i className="fas fa-check"></i>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.success}</h2>
-          <p className="text-gray-500 font-medium">As alterações foram aplicadas à sua página pública.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-gray-50 min-h-screen py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <button 
             type="button"
-            onClick={() => userRole === UserRole.STAND ? navigate('/dashboard') : navigate('/cliente')}
+            onClick={() => (userRole === UserRole.STAND || userRole === UserRole.ADMIN) ? navigate('/dashboard') : navigate('/cliente')}
             className="flex items-center text-gray-400 hover:text-blue-600 font-bold transition-all group"
           >
             <i className="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i>
@@ -220,105 +219,120 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
             type="button"
             disabled={isLoggingOut}
             onClick={handleLogoutClick}
-            className={`flex items-center font-bold text-sm transition-all gap-2 px-4 py-2 rounded-xl border shadow-sm ${
-              isLoggingOut 
-                ? 'bg-gray-100 text-gray-400 border-gray-200' 
-                : 'text-red-500 hover:text-red-700 bg-white border-red-100 hover:bg-red-50'
-            }`}
+            className="flex items-center font-bold text-sm text-red-500 hover:text-red-700 transition-all gap-2"
           >
             {isLoggingOut ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-sign-out-alt"></i>}
             {isLoggingOut ? 'Saindo...' : 'Logout'}
           </button>
         </div>
 
-        <header className="mb-12">
-          <h1 className="text-4xl font-black text-gray-900 mb-2 tracking-tight">
-            {userRole === UserRole.STAND ? 'Configurar Stand' : t.title}
-          </h1>
-          <p className="text-gray-500 text-lg font-medium">
-            {userRole === UserRole.STAND ? 'Personalize como o seu stand aparece para os clientes.' : t.subtitle}
-          </p>
-        </header>
+        {isSuccess ? (
+          <div className="bg-white p-12 rounded-[40px] shadow-2xl text-center animate-in zoom-in duration-300">
+            <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 text-4xl">
+              <i className="fas fa-check"></i>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.success}</h2>
+            <p className="text-gray-500 font-medium">As suas alterações foram aplicadas com sucesso.</p>
+          </div>
+        ) : (
+          <>
+            <header className="mb-12">
+              <h1 className="text-4xl font-black text-gray-900 mb-2 tracking-tight">
+                {userRole === UserRole.STAND ? 'Configurações do Stand' : t.title}
+              </h1>
+              <p className="text-gray-500 text-lg font-medium">
+                {userRole === UserRole.STAND ? 'Personalize o seu logótipo e a biografia do seu negócio.' : t.subtitle}
+              </p>
+            </header>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm border border-red-100">{error}</div>}
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm border border-red-100">{error}</div>}
 
-          <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
-            <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center">
-              <i className="fas fa-store mr-3 text-blue-600"></i>
-              Identidade Visual
-            </h3>
+              <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
+                <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center">
+                  <i className="fas fa-store mr-3 text-blue-600"></i>
+                  Identidade e Logótipo
+                </h3>
 
-            <div className="flex flex-col items-center mb-10">
-              <div className="relative group">
-                <div className="w-40 h-40 rounded-[35px] overflow-hidden bg-gray-50 border-4 border-white shadow-xl flex items-center justify-center text-blue-600 font-black text-5xl">
-                  {formData.profile_image ? (
-                    <img src={formData.profile_image} className="w-full h-full object-cover" alt="Logo" />
-                  ) : (
-                    formData.stand_name ? formData.stand_name[0].toUpperCase() : 'S'
-                  )}
+                <div className="flex flex-col items-center mb-10">
+                  <div className="relative group">
+                    <div className="w-40 h-40 rounded-[35px] overflow-hidden bg-gray-50 border-4 border-white shadow-xl flex items-center justify-center text-blue-600 font-black text-5xl">
+                      {formData.profile_image ? (
+                        <img src={formData.profile_image} className="w-full h-full object-cover" alt="Logo" />
+                      ) : (
+                        formData.stand_name ? formData.stand_name[0].toUpperCase() : 'S'
+                      )}
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 w-12 h-12 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors border-4 border-white"
+                    >
+                      <i className="fas fa-camera"></i>
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-4">Clique para carregar o seu logótipo</p>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                 </div>
-                <button 
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-2 -right-2 w-12 h-12 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors border-4 border-white"
-                >
-                  <i className="fas fa-camera"></i>
-                </button>
-              </div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-4">Logotipo do Stand (PNG/JPG)</p>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nome do Stand</label>
-                <input required name="stand_name" value={formData.stand_name} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Descrição do Stand (Bio)</label>
-                <textarea 
-                  name="description" 
-                  value={formData.description} 
-                  onChange={handleChange} 
-                  rows={5} 
-                  placeholder="Ex: Stand especializado em SUVs com 20 anos de mercado..." 
-                  className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Localidade</label>
-                <input name="location" value={formData.location} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Telemóvel (Privado)</label>
-                <input name="phone" value={formData.phone} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
-              </div>
-            </div>
-          </section>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nome do Stand</label>
+                    <input 
+                      required 
+                      name="stand_name" 
+                      value={formData.stand_name} 
+                      onChange={handleChange} 
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" 
+                      placeholder="Nome oficial do stand"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Sobre o Stand (Descrição)</label>
+                    <textarea 
+                      name="description" 
+                      value={formData.description} 
+                      onChange={handleChange} 
+                      rows={5} 
+                      placeholder="Conte a história do seu stand ou destaque as suas vantagens competitivas..." 
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Localidade Principal</label>
+                    <input name="location" value={formData.location} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Telefone de Contacto</label>
+                    <input name="phone" value={formData.phone} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
+                </div>
+              </section>
 
-          <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
-            <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center">
-              <i className="fas fa-lock mr-3 text-blue-600"></i>
-              Acesso
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nova Palavra-passe</label>
-                <input type="password" name="newPassword" value={formData.newPassword} onChange={handleChange} placeholder="Deixe em branco para manter a atual" className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
-              </div>
-            </div>
-          </section>
+              <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
+                <h3 className="text-2xl font-black text-gray-900 mb-8 flex items-center">
+                  <i className="fas fa-lock mr-3 text-blue-600"></i>
+                  Segurança
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nova Palavra-passe</label>
+                    <input type="password" name="newPassword" value={formData.newPassword} onChange={handleChange} placeholder="Deixe em branco para não alterar" className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
+                </div>
+              </section>
 
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="w-full py-6 bg-blue-600 text-white rounded-[30px] font-black text-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
-            {t.saveChanges}
-          </button>
-        </form>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full py-6 bg-blue-600 text-white rounded-[30px] font-black text-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
+                {t.saveChanges}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
