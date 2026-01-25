@@ -32,7 +32,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         return;
       }
 
-      // Buscar perfil completo atualizado
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -45,7 +44,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       const currentStandName = profileData?.stand_name?.trim() || user.user_metadata?.stand_name?.trim() || 'Sem Nome';
 
-      // Buscar Meus Leads
       const { data: leadsData } = await supabase
         .from('leads')
         .select('*, cars(id, brand, model)')
@@ -54,7 +52,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       setMyLeads(leadsData || []);
 
-      // Buscar Meus Anúncios
       const { data: carsData } = await supabase
         .from('cars')
         .select('*')
@@ -82,7 +79,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .eq('id', leadId);
 
       if (error) throw error;
-      
       setMyLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
     } catch (err: any) {
       alert(lang === 'pt' ? "Erro ao atualizar lead." : "Error updating lead.");
@@ -101,16 +97,13 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .update({ active: targetStatus })
         .eq('id', carId);
 
-      if (error) {
-        if (error.message.includes('column "active" of relation "cars" does not exist') || error.message.includes('schema cache')) {
-          throw new Error('Erro de Infraestrutura: A funcionalidade de ocultar anúncios requer uma atualização na base de dados. Por favor, contacte o administrador para executar o script SQL de atualização.');
-        }
-        throw error;
-      }
+      if (error) throw error;
       
+      // Atualização imediata do estado local para refletir na UI
       setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
-      alert(err.message);
+      console.error("Erro ao alternar status:", err);
+      alert(lang === 'pt' ? "Erro ao alterar visibilidade: " + err.message : "Error changing visibility.");
     } finally {
       setIsToggling(null);
     }
@@ -118,26 +111,26 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const handleDeleteCar = async (carId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "Deseja remover este anúncio definitivamente? Esta ação não pode ser desfeita." 
-      : "Do you want to delete this ad permanently? This action cannot be undone.";
+      ? "Deseja remover este anúncio definitivamente? Todas as leads associadas serão também removidas." 
+      : "Delete this ad permanently? All associated leads will also be removed.";
     
     if (!window.confirm(confirmMsg)) return;
 
     setIsDeleting(carId);
-
     try {
       const { error } = await supabase
         .from('cars')
         .delete()
-        .match({ id: carId });
+        .eq('id', carId);
 
       if (error) throw error;
       
+      // Remove do estado local para feedback instantâneo
       setMyCars(prev => prev.filter(c => c.id !== carId));
     } catch (err: any) {
       console.error("Erro ao eliminar car:", err);
       alert(lang === 'pt' 
-        ? "Erro ao eliminar: Verifique se tem permissões." 
+        ? "Erro ao eliminar: Pode haver um problema de ligação ou permissões." 
         : "Error deleting.");
     } finally {
       setIsDeleting(null);
@@ -172,11 +165,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-black text-gray-900">{profile?.stand_name || 'Sem Nome'}</h1>
-                <Link 
-                  to="/cliente/editar" 
-                  className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors"
-                  title="Configurar Página"
-                >
+                <Link to="/cliente/editar" className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors">
                   <i className="fas fa-cog text-xs"></i>
                 </Link>
               </div>
@@ -199,9 +188,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           </div>
 
           <div className="flex gap-4">
-             <Link to="/cliente/editar" className="bg-white border border-gray-100 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-2">
-               <i className="fas fa-store"></i> Editar Página
-             </Link>
              <Link to="/anunciar" className="bg-blue-600 text-white px-6 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
                <i className="fas fa-plus"></i> Novo Anúncio
              </Link>
@@ -217,86 +203,56 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     <p className="text-gray-400 font-bold">Sem leads no momento.</p>
                   </div>
                 ) : (
-                  myLeads.map(lead => {
-                    const isContacted = lead.status === 'Contactado';
-                    const carData = (lead as any).cars || (lead as any).car;
-                    return (
-                      <div key={lead.id} className={`bg-white p-8 rounded-[35px] shadow-sm border border-gray-100 hover:border-blue-200 transition-all ${isContacted ? 'opacity-60 grayscale-[0.5]' : 'opacity-100'}`}>
-                        <div className="flex flex-col lg:flex-row justify-between gap-6">
-                          <div className="flex gap-6">
-                            <button 
-                              onClick={() => handleToggleLeadStatus(lead.id, lead.status)}
-                              disabled={isUpdatingLead === lead.id}
-                              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all border shrink-0 ${
-                                isContacted 
-                                  ? 'bg-green-500 text-white border-green-600' 
-                                  : 'bg-white text-gray-300 border-gray-100 hover:border-green-400 hover:text-green-500'
-                              } shadow-sm`}
-                            >
-                              {isUpdatingLead === lead.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-check text-xl"></i>}
-                            </button>
-                            <div>
-                              <div className="flex items-center gap-3 mb-1">
-                                <h3 className="text-xl font-black text-gray-900">{lead.customer_name}</h3>
-                                {isContacted && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">Contactado</span>}
-                              </div>
-                              <p className="text-sm text-blue-600 font-bold">{lead.customer_phone} • {lead.customer_email}</p>
-                              <div className="mt-4 flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                <span><i className="far fa-calendar-alt mr-1"></i> {new Date(lead.created_at).toLocaleDateString('pt-PT')}</span>
-                                {carData && <span><i className="fas fa-car mr-1"></i> {carData.brand} {carData.model}</span>}
-                              </div>
-                              <p className="mt-4 text-gray-500 italic bg-gray-50 p-4 rounded-2xl border border-gray-100">"{lead.message}"</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 lg:flex-col lg:justify-center">
-                            <a href={`tel:${lead.customer_phone}`} className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-blue-600 border border-gray-100 transition-all"><i className="fas fa-phone"></i></a>
-                            <a href={`https://wa.me/${lead.customer_phone.replace(/\D/g, '')}`} target="_blank" className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-500 border border-green-100 transition-all"><i className="fab fa-whatsapp"></i></a>
+                  myLeads.map(lead => (
+                    <div key={lead.id} className={`bg-white p-8 rounded-[35px] shadow-sm border border-gray-100 ${lead.status === 'Contactado' ? 'opacity-60' : ''}`}>
+                      <div className="flex flex-col lg:flex-row justify-between gap-6">
+                        <div className="flex gap-6">
+                          <button 
+                            onClick={() => handleToggleLeadStatus(lead.id, lead.status)}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${lead.status === 'Contactado' ? 'bg-green-500 text-white' : 'bg-white text-gray-300'}`}
+                          >
+                            <i className="fas fa-check"></i>
+                          </button>
+                          <div>
+                            <h3 className="text-xl font-black text-gray-900">{lead.customer_name}</h3>
+                            <p className="text-sm text-blue-600 font-bold">{lead.customer_phone}</p>
+                            <p className="mt-4 text-gray-500 italic bg-gray-50 p-4 rounded-2xl">"{lead.message}"</p>
                           </div>
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {myCars.map(car => (
-                  <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm group transition-all ${!(car.active ?? true) ? 'opacity-70 bg-gray-50/50' : 'opacity-100'}`}>
+                  <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm transition-all ${!(car.active ?? true) ? 'opacity-50 grayscale' : ''}`}>
                     <div className="relative h-48">
-                      <img src={car.image} className={`w-full h-full object-cover transition-all ${!(car.active ?? true) ? 'grayscale' : ''}`} alt="" />
-                      
+                      <img src={car.image} className="w-full h-full object-cover" alt="" />
                       <div className="absolute top-4 left-4">
                         <button 
                           onClick={(e) => { e.preventDefault(); handleToggleActive(car.id, car.active ?? true); }}
                           disabled={isToggling === car.id}
-                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-400 text-white' }`}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
                         >
-                          {isToggling === car.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className={`fas ${(car.active ?? true) ? 'fa-eye' : 'fa-eye-slash'}`}></i>}
-                          {(car.active ?? true) ? (lang === 'pt' ? 'Ativo' : 'Active') : (lang === 'pt' ? 'Inativo' : 'Inactive')}
+                          {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Visível' : 'Oculto')}
                         </button>
                       </div>
-
                       <div className="absolute top-4 right-4 flex gap-2">
-                        <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
+                        <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
                         <button 
-                          disabled={isDeleting !== null}
-                          onClick={(e) => { e.preventDefault(); handleDeleteCar(car.id); }} 
+                          onClick={() => handleDeleteCar(car.id)} 
+                          disabled={isDeleting === car.id}
                           className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
                         >
-                          {isDeleting === car.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-trash"></i>}
+                          {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
                         </button>
                       </div>
                     </div>
                     <div className="p-6">
-                      <div className="flex items-center justify-between">
-                         <h4 className="font-black text-gray-900 truncate">{car.brand} {car.model}</h4>
-                         {!(car.active ?? true) && <span className="text-[8px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded font-black uppercase">Oculto</span>}
-                      </div>
-                      <p className="text-blue-600 font-black mt-1">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
-                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-50 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                        <span>{car.year} • {car.mileage.toLocaleString()} km</span>
-                        <Link to={`/veiculos/${car.id}`} className="text-blue-500 hover:underline">Ver no Site</Link>
-                      </div>
+                      <h4 className="font-black text-gray-900">{car.brand} {car.model}</h4>
+                      <p className="text-blue-600 font-black">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
                     </div>
                   </div>
                 ))}
@@ -307,7 +263,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           <div className="bg-amber-50 p-20 rounded-[40px] text-center border border-amber-100 text-amber-700">
              <i className="fas fa-clock text-4xl mb-4"></i>
              <h2 className="text-2xl font-black">Aguardando Aprovação</h2>
-             <p className="mt-2 font-medium">A sua conta de stand profissional está a ser verificada.</p>
           </div>
         )}
       </div>

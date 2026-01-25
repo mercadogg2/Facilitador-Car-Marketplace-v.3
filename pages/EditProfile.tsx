@@ -87,22 +87,12 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
         setUserRole(session.user.user_metadata?.role || UserRole.VISITOR);
 
-        // Tentativa de busca segura. Se 'description' falhar, tentamos sem ela.
-        let { data: profile, error: fetchError } = await supabase
+        // Busca defensiva de colunas
+        const { data: profile, error: fetchError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
-
-        if (fetchError && fetchError.message.includes('description')) {
-           // Se a coluna description der erro no select, buscamos apenas o básico
-           const { data: basicProfile } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, phone, location, stand_name, profile_image, slug')
-            .eq('id', session.user.id)
-            .single();
-           profile = basicProfile;
-        }
 
         if (profile) {
           setFormData({
@@ -111,8 +101,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
             phone: profile.phone || '',
             location: profile.location || '',
             stand_name: profile.stand_name || '',
-            description: profile.description || '',
-            profile_image: profile.profile_image || '',
+            description: (profile as any).description || '',
+            profile_image: (profile as any).profile_image || '',
             slug: profile.slug || ''
           });
         }
@@ -136,18 +126,16 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
       const newSlug = userRole === UserRole.STAND ? slugify(formData.stand_name) : formData.slug;
 
-      // 1. Atualizar Auth Metadata
       await supabase.auth.updateUser({
         data: { full_name: formData.name, stand_name: formData.stand_name, slug: newSlug }
       });
       
-      // 2. Preparar payload de atualização
       const payload: any = {
         id: session.user.id,
         full_name: formData.name,
         phone: formData.phone,
         stand_name: formData.stand_name,
-        description: formData.description, // Tentamos enviar primeiro
+        description: formData.description,
         profile_image: formData.profile_image,
         location: formData.location,
         slug: newSlug,
@@ -159,21 +147,16 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
       const { error: profileError } = await supabase.from('profiles').upsert(payload);
 
       if (profileError) {
-        // Se o erro for especificamente sobre a coluna description ou cache
-        if (profileError.message.includes('column "description"') || profileError.message.includes('schema cache')) {
-          console.warn("API Supabase desatualizada detectada. Removendo 'description' do payload...");
-          
-          // TENTATIVA 2: Upsert parcial (sem a coluna description)
-          const { description, ...safePayload } = payload;
-          const { error: secondTryError } = await supabase.from('profiles').upsert(safePayload);
-          
-          if (secondTryError) throw secondTryError;
+        console.warn("Falha no salvamento completo, tentando modo de compatibilidade...", profileError.message);
+        
+        // TENTATIVA 2: Se falhar por causa de colunas novas (description ou updated_at), removemos e tentamos o básico
+        const { description, profile_image, updated_at, ...safePayload } = payload;
+        const { error: secondTryError } = await supabase.from('profiles').upsert(safePayload);
+        
+        if (secondTryError) throw secondTryError;
 
-          setError('⚠️ Aviso: O seu perfil foi guardado, mas o campo "Descrição" não pôde ser gravado porque o Supabase ainda está a atualizar o cache interno. Por favor, tente editar a descrição novamente em alguns minutos.');
-          setIsSuccess(true);
-        } else {
-          throw profileError;
-        }
+        setError('⚠️ O perfil foi guardado parcialmente. Algumas funcionalidades novas (Descrição/Data) requerem que execute o script SQL de reparação no painel administrativo.');
+        setIsSuccess(true);
       } else {
         setIsSuccess(true);
       }
@@ -182,7 +165,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         setTimeout(() => {
           if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
           else navigate('/cliente');
-        }, 4000);
+        }, 3500);
       }
 
     } catch (err: any) {
@@ -218,7 +201,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         <header className="mb-12 flex justify-between items-end">
           <div>
             <h1 className="text-4xl font-black text-gray-900 mb-2">Definições de Perfil</h1>
-            <p className="text-gray-500 font-medium">Controle como o seu stand é apresentado aos clientes.</p>
+            <p className="text-gray-500 font-medium">Mantenha os seus dados atualizados.</p>
           </div>
           <button onClick={() => navigate(-1)} className="text-gray-400 font-bold hover:text-blue-600 transition-colors">
             <i className="fas fa-arrow-left mr-2"></i>{tc.back}
@@ -229,14 +212,14 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           <div className="bg-white p-12 rounded-[40px] shadow-2xl text-center animate-in zoom-in">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
             <h2 className="text-2xl font-black text-gray-900">Perfil Atualizado!</h2>
-            <p className="text-gray-500 mt-2">As suas alterações já estão visíveis na plataforma.</p>
+            <p className="text-gray-500 mt-2">Redirecionando para o seu painel...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
               <div className="p-8 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm whitespace-pre-line animate-in shake">
                 <div className="flex items-center gap-3 mb-2 text-amber-600 font-black uppercase tracking-widest text-[10px]">
-                  <i className="fas fa-database"></i> Sincronização em curso
+                  <i className="fas fa-database"></i> Problema de Sincronização
                 </div>
                 {error}
               </div>
@@ -249,7 +232,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
                     {formData.profile_image ? (
                       <img src={formData.profile_image} className="w-full h-full object-cover" alt="Logo" />
                     ) : (
-                      formData.stand_name ? formData.stand_name[0].toUpperCase() : 'S'
+                      formData.stand_name ? formData.stand_name[0].toUpperCase() : (formData.name ? formData.name[0].toUpperCase() : 'U')
                     )}
                   </div>
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute -bottom-2 -right-2 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center border-4 border-white hover:scale-110 transition-transform">
@@ -261,19 +244,19 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Nome Oficial do Stand</label>
-                  <input required value={formData.stand_name} onChange={(e) => setFormData({...formData, stand_name: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Nome Completo / Stand</label>
+                  <input required value={formData.stand_name || formData.name} onChange={(e) => setFormData({...formData, stand_name: e.target.value, name: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição Pública</label>
-                  <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={6} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" placeholder="Fale sobre a história e confiança do seu stand..." />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição (Bio)</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={4} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade / Região</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade</label>
                   <input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Contacto Direto</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Telemóvel</label>
                   <input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
               </div>

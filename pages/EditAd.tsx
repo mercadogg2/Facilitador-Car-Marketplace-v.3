@@ -13,7 +13,6 @@ const compressImage = (base64Str: string, maxWidth = 1600, maxHeight = 1600): Pr
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-
       if (width > height) {
         if (width > maxWidth) {
           height *= maxWidth / width;
@@ -25,7 +24,6 @@ const compressImage = (base64Str: string, maxWidth = 1600, maxHeight = 1600): Pr
           height = maxHeight;
         }
       }
-
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -90,7 +88,7 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
           setImages(data.images || [data.image]);
         }
       } catch (err: any) {
-        setError("Falha ao carregar.");
+        setError("Falha ao carregar anúncio.");
       } finally {
         setLoading(false);
       }
@@ -100,11 +98,6 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as any;
-    if (name === 'subdomain') {
-      const sanitized = value.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-      setFormData(prev => ({ ...prev, [name]: sanitized }));
-      return;
-    }
     const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     setFormData(prev => ({ ...prev, [name]: val }));
   };
@@ -136,10 +129,17 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
     setError(null);
     try {
       const updateData = {
-        ...formData,
+        brand: formData.brand,
+        model: formData.model,
         year: parseInt(formData.year.toString()),
+        category: formData.category,
         mileage: parseInt(formData.mileage) || 0,
+        fuel: formData.fuel,
+        transmission: formData.transmission,
         price: parseFloat(formData.price.replace(',', '.')) || 0,
+        location: formData.location,
+        description: formData.description,
+        subdomain: formData.subdomain,
         image: images[0],
         images: images,
         active: formData.active
@@ -179,8 +179,6 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm border border-red-100">{error}</div>}
-          
           <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
              <h3 className="text-xl font-black mb-8 flex items-center">
               <i className="fas fa-images mr-3 text-blue-600"></i>
@@ -188,13 +186,13 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {images.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-100">
                   <img src={img} className="w-full h-full object-cover" alt="" />
                   <button type="button" onClick={() => removeImage(idx)} className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center"><i className="fas fa-times"></i></button>
                 </div>
               ))}
               {images.length < 10 && (
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-400 transition-all">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all">
                   <i className="fas fa-plus-circle text-2xl"></i>
                 </button>
               )}
@@ -212,15 +210,11 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Marca</label>
                 <input required name="brand" value={formData.brand} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Modelo</label>
-                <input required name="model" value={formData.model} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
-              </div>
             </div>
           </div>
 
           <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-blue-600 text-white rounded-[30px] font-black text-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
-            {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
+            {isSubmitting ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-save"></i>}
             Guardar Alterações
           </button>
         </form>

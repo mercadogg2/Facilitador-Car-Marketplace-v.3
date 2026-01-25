@@ -7,8 +7,9 @@ export const supabaseAnonKey = 'sb_publishable_o-wZ9sIKkceI0RfEJ4doRw_wXwVvRv7';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * 🔥 SCRIPT DE REPARAÇÃO (Execute no SQL EDITOR do Supabase):
+ * 🔥 SCRIPT DE REPARAÇÃO DEFINITIVO:
  * 
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
  * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS description TEXT;
  * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_image TEXT;
  * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stand_name TEXT;
@@ -21,7 +22,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * 
  * GRANT ALL ON TABLE public.profiles TO postgres, anon, authenticated, service_role;
  * 
- * COMMENT ON TABLE public.profiles IS 'Force schema reload 2.1';
+ * COMMENT ON TABLE public.profiles IS 'Schema version 2.2';
  * NOTIFY pgrst, 'reload schema';
  */
 
