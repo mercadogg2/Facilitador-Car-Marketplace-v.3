@@ -5,6 +5,40 @@ import { Language, Car } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { supabase } from '../lib/supabase';
 
+const compressImage = (base64Str: string, maxWidth = 1600, maxHeight = 1600): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+  });
+};
+
 interface EditAdProps {
   lang: Language;
 }
@@ -29,7 +63,8 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
     price: '',
     location: '',
     description: '',
-    subdomain: ''
+    subdomain: '',
+    active: true
   });
 
   useEffect(() => {
@@ -49,7 +84,8 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
             price: data.price.toString(),
             location: data.location,
             description: data.description,
-            subdomain: data.subdomain || ''
+            subdomain: data.subdomain || '',
+            active: data.active ?? true
           });
           setImages(data.images || [data.image]);
         }
@@ -63,19 +99,14 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
   }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    
-    // Higienização para o link personalizado
+    const { name, value, type } = e.target as any;
     if (name === 'subdomain') {
-      const sanitized = value
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w-]/g, '');
+      const sanitized = value.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
       setFormData(prev => ({ ...prev, [name]: sanitized }));
       return;
     }
-
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    setFormData(prev => ({ ...prev, [name]: val }));
   };
 
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,7 +117,11 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
     }
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onloadend = () => setImages(prev => [...prev, reader.result as string]);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const compressed = await compressImage(base64);
+        setImages(prev => [...prev, compressed]);
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -98,6 +133,7 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
     try {
       const updateData = {
         ...formData,
@@ -106,9 +142,10 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
         price: parseFloat(formData.price.replace(',', '.')) || 0,
         image: images[0],
         images: images,
-        subdomain: formData.subdomain
+        active: formData.active
       };
-      await supabase.from('cars').update(updateData).eq('id', id);
+      const { error: updateError } = await supabase.from('cars').update(updateData).eq('id', id);
+      if (updateError) throw updateError;
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);
@@ -122,11 +159,28 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
   return (
     <div className="bg-gray-50 min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <header className="mb-12">
+        <header className="mb-12 flex justify-between items-center">
           <h1 className="text-4xl font-black text-gray-900 tracking-tight">Editar Viatura</h1>
+          <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${formData.active ? 'text-green-600' : 'text-gray-400'}`}>
+              {formData.active ? 'Anúncio Público' : 'Anúncio Oculto'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                name="active"
+                checked={formData.active}
+                onChange={handleChange}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
+          {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm border border-red-100">{error}</div>}
+          
           <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
              <h3 className="text-xl font-black mb-8 flex items-center">
               <i className="fas fa-images mr-3 text-blue-600"></i>
@@ -148,55 +202,27 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
             <input ref={fileInputRef} type="file" multiple onChange={handleFilesChange} className="hidden" />
           </div>
 
-          <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Preço (€)</label>
-                <input name="price" value={formData.price} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 font-bold" />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Marca</label>
-                <input name="brand" value={formData.brand} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 font-bold" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Descrição</label>
-              <textarea name="description" value={formData.description} onChange={handleChange} rows={5} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none resize-none" />
-            </div>
-          </div>
-
-          {/* Marketing e Link Personalizado */}
           <div className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
-             <h3 className="text-xl font-black text-gray-900 mb-2 flex items-center">
-              <i className="fas fa-link mr-3 text-blue-600"></i>
-              Link Único do Anúncio
-            </h3>
-            
-            <div className="bg-gray-50 p-6 rounded-2xl border border-dashed border-gray-200">
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Slug do Link</label>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 font-bold text-sm hidden md:inline">facilitadorcar.com/#/v/</span>
-                <input 
-                  name="subdomain" 
-                  value={formData.subdomain} 
-                  onChange={handleChange} 
-                  placeholder="ex: bmw-m3-sport-2024"
-                  className="flex-grow bg-white px-4 py-3 rounded-xl border border-gray-100 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Preço (€)</label>
+                <input required name="price" value={formData.price} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
               </div>
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase">
-                Link: <span className="text-gray-900">facilitadorcar.com/#/v/{formData.subdomain || '...'}</span>
-              </p>
+              <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Marca</label>
+                <input required name="brand" value={formData.brand} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Modelo</label>
+                <input required name="model" value={formData.model} onChange={handleChange} className="w-full px-5 py-4 rounded-2xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <button type="submit" disabled={isSubmitting} className="flex-grow py-6 bg-blue-600 text-white rounded-[30px] font-black text-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
-              {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
-              Guardar Alterações
-            </button>
-            <button type="button" onClick={() => navigate('/dashboard')} className="px-10 py-6 bg-white border border-gray-200 text-gray-500 rounded-[30px] font-bold">Cancelar</button>
-          </div>
+          <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-blue-600 text-white rounded-[30px] font-black text-2xl shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
+            {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
+            Guardar Alterações
+          </button>
         </form>
       </div>
     </div>

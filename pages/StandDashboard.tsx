@@ -93,17 +93,24 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
+    const targetStatus = !currentActive;
+    
     try {
       const { error } = await supabase
         .from('cars')
-        .update({ active: !currentActive })
+        .update({ active: targetStatus })
         .eq('id', carId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('column "active" of relation "cars" does not exist') || error.message.includes('schema cache')) {
+          throw new Error('Erro de Infraestrutura: A funcionalidade de ocultar anúncios requer uma atualização na base de dados. Por favor, contacte o administrador para executar o script SQL de atualização.');
+        }
+        throw error;
+      }
       
-      setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: !currentActive } : c));
+      setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
-      alert(lang === 'pt' ? "Erro ao alterar visibilidade: " : "Error toggling visibility: " + err.message);
+      alert(err.message);
     } finally {
       setIsToggling(null);
     }

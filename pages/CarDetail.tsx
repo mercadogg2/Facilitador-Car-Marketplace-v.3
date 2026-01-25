@@ -6,6 +6,7 @@ import { TRANSLATIONS } from '../constants';
 import LeadForm from '../components/LeadForm';
 import CarCard from '../components/CarCard';
 import { supabase } from '../lib/supabase';
+import { slugify, formatCurrency } from '../lib/utils';
 
 interface CarDetailProps {
   lang: Language;
@@ -40,7 +41,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
         setCar(data);
         setActiveImage(0);
         
-        // Buscar relacionados
         const { data: related } = await supabase
           .from('cars')
           .select('*')
@@ -68,6 +68,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
 
   const isFavorite = favorites.includes(car.id);
   const gallery = car.images && car.images.length > 0 ? car.images : [car.image];
+  const standSlug = car.stand_slug || (car.stand_name ? slugify(car.stand_name) : '');
 
   return (
     <div className="bg-white min-h-screen">
@@ -84,7 +85,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2 space-y-6">
-            {/* Galeria Principal */}
             <div className="space-y-4">
               <div className="relative rounded-[40px] overflow-hidden shadow-2xl bg-gray-100 group">
                 <img 
@@ -93,7 +93,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                   className="w-full aspect-[16/10] object-cover animate-in fade-in duration-500" 
                 />
                 
-                {/* Controles de Navegação */}
                 {gallery.length > 1 && (
                   <>
                     <button 
@@ -123,7 +122,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                 </div>
               </div>
 
-              {/* Thumbnails */}
               {gallery.length > 1 && (
                 <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                   {gallery.map((img, idx) => (
@@ -164,7 +162,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
               <div className="space-y-2">
                 <h1 className="text-4xl font-extrabold text-gray-900">{car.brand} {car.model}</h1>
                 <div className="text-4xl font-black text-blue-600">
-                  {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(car.price)}
+                  {formatCurrency(car.price, lang)}
                 </div>
               </div>
 
@@ -175,7 +173,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                 {tc.contact}
               </button>
 
-              <Link to={`/stand/${encodeURIComponent(car.stand_name)}`} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 block hover:border-blue-200 transition-all">
+              <Link to={`/${standSlug}`} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 block hover:border-blue-200 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 text-xl font-bold">{car.stand_name?.[0]}</div>
                   <div>

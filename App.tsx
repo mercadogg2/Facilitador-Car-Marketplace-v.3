@@ -45,7 +45,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Verificar sessão inicial
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -58,7 +57,6 @@ const App: React.FC = () => {
     };
     checkSession();
 
-    // 2. Escutar mudanças de autenticação em tempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         const userRole = session.user.user_metadata?.role || UserRole.VISITOR;
@@ -84,8 +82,7 @@ const App: React.FC = () => {
     localStorage.clear();
     setIsLoggedIn(false);
     setRole(UserRole.VISITOR);
-    // Redirecionamento suave sem reload forçado se possível
-    window.location.href = '/#/';
+    window.location.hash = '/';
   };
 
   if (isLoading) {
@@ -111,7 +108,6 @@ const App: React.FC = () => {
             <Route path="/blog" element={<Blog lang={language} />} />
             <Route path="/blog/:id" element={<Article lang={language} />} />
             <Route path="/stands" element={<StandsList lang={language} />} />
-            
             <Route path="/stands/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             
             <Route path="/dashboard" element={isLoggedIn && (role === UserRole.STAND || role === UserRole.ADMIN) ? <StandDashboard lang={language} role={role} /> : <Navigate to="/login" />} />
@@ -129,10 +125,8 @@ const App: React.FC = () => {
             <Route path="/termos" element={<TermsOfUse lang={language} />} />
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
 
-            {/* Catch-all para slugs de stand amigáveis */}
             <Route path="/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
           </Routes>
-          
           <SupportWidget lang={language} />
         </main>
         <Footer lang={language} />
