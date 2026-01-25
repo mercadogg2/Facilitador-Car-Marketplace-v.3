@@ -95,7 +95,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         const role = session.user.user_metadata?.role || UserRole.VISITOR;
         setUserRole(role);
 
-        const { data: profile } = await supabase
+        // Tentativa de busca segura
+        const { data: profile, error: fetchError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
@@ -158,6 +159,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
       const newSlug = userRole === UserRole.STAND ? slugify(formData.stand_name) : formData.slug;
 
+      // 1. Atualizar Auth Metadata
       await supabase.auth.updateUser({
         data: {
           full_name: formData.name,
@@ -167,25 +169,38 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         password: formData.newPassword || undefined
       });
       
+      // 2. Construir objeto de atualização de forma DEFENSIVA
+      // Se a coluna não existir, o erro será capturado mas saberemos exatamente qual foi
+      const profileUpdate: any = {
+        id: session.user.id,
+        full_name: formData.name,
+        phone: formData.phone,
+        stand_name: formData.stand_name,
+        profile_image: formData.profile_image,
+        location: formData.location,
+        slug: newSlug,
+        email: formData.email,
+        updated_at: new Date().toISOString()
+      };
+
+      // Só incluímos description se tivermos certeza que ela deve ser gravada
+      if (formData.description) {
+        profileUpdate.description = formData.description;
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: session.user.id,
-          full_name: formData.name,
-          phone: formData.phone,
-          stand_name: formData.stand_name,
-          description: formData.description,
-          profile_image: formData.profile_image,
-          location: formData.location,
-          slug: newSlug,
-          email: formData.email,
-          updated_at: new Date().toISOString()
-        });
+        .upsert(profileUpdate);
 
       if (profileError) {
-        if (profileError.message.includes('column "description" of relation "profiles" does not exist') || profileError.message.includes('schema cache')) {
-          throw new Error('A coluna "description" não existe na tabela "profiles" ou o cache do Supabase está desatualizado. Por favor, execute o script SQL disponível em lib/supabase.ts no seu painel Supabase.');
+        console.error("Erro técnico Supabase:", profileError);
+        
+        // Diagnóstico preciso
+        if (profileError.message.includes('column "description"') || profileError.message.includes('schema cache')) {
+          setError('⚠️ ERRO DE BASE DE DADOS: A coluna "description" ainda não foi reconhecida pelo Supabase. \n\nSOLUÇÃO: Vá ao SQL Editor do Supabase, cole o script que está em lib/supabase.ts e clique em RUN. Depois, recarregue esta página.');
+          return;
         }
+        
         throw profileError;
       }
 
@@ -227,8 +242,11 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
-              <div className="p-6 bg-red-50 text-red-600 rounded-3xl font-bold text-sm border border-red-100 animate-in shake">
-                <i className="fas fa-exclamation-circle mr-3"></i>
+              <div className="p-8 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm animate-in shake duration-500 whitespace-pre-line">
+                <div className="flex items-center gap-3 mb-3 text-amber-600">
+                   <i className="fas fa-database text-xl"></i>
+                   <span className="font-black uppercase tracking-widest text-[10px]">Alerta de Sincronização</span>
+                </div>
                 {error}
               </div>
             )}
