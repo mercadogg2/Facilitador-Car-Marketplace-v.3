@@ -304,7 +304,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
             <div className="bg-slate-900 rounded-[30px] p-8 relative group">
               <div className="flex justify-between items-center mb-6">
-                 <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Script SQL de Reparação Profunda</span>
+                 <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Script SQL de Reparação (Corrigido)</span>
                  <button 
                   onClick={() => {
                     const code = document.getElementById('repair-sql')?.innerText || '';
@@ -313,11 +313,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   }}
                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-[10px] font-black transition-all"
                  >
-                   Copiado Script
+                   Copiar Script
                  </button>
               </div>
               <pre id="repair-sql" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-96">
-{`-- REPARAÇÃO TOTAL DE COLUNAS E CACHE
+{`-- 1. GARANTIR COLUNAS
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_image TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stand_name TEXT;
@@ -327,10 +327,14 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS slug TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
 
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
-ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false;
-ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS images TEXT[];
 
--- FORÇAR O SUPABASE A RECONHECER AS MUDANÇAS IMEDIATAMENTE
+-- 2. REFRESH DE PERMISSÕES
+GRANT ALL ON TABLE public.profiles TO postgres, anon, authenticated, service_role;
+
+-- 3. FORÇAR RELOAD DO CACHE (Sem erro de sintaxe)
+COMMENT ON TABLE public.profiles IS 'Schema refreshed to include all profile fields';
+
+-- 4. NOTIFICAR RECARREGAMENTO
 NOTIFY pgrst, 'reload schema';`}
               </pre>
             </div>
@@ -339,19 +343,17 @@ NOTIFY pgrst, 'reload schema';`}
                <h4 className="font-black text-blue-900 mb-2">Como aplicar?</h4>
                <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside font-medium">
                  <li>Clique no botão "Copiar Script" acima.</li>
-                 <li>Aceda ao seu painel no Supabase (app.supabase.com).</li>
+                 <li>Aceda ao seu painel no Supabase.</li>
                  <li>Vá a <strong>SQL Editor</strong> no menu lateral.</li>
                  <li>Clique em <strong>New Query</strong>, cole o código e clique em <strong>Run</strong>.</li>
-                 <li>Volte ao Facilitador Car e atualize a página (F5).</li>
+                 <li><strong>IMPORTANTE:</strong> Faça um Hard Refresh (CTRL + F5) no browser após correr o script.</li>
                </ol>
             </div>
           </div>
         )}
 
-        {/* Outras abas (ads, leads) continuam as mesmas */}
         {activeTab === 'ads' && (
            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-             {/* ... conteúdo anterior de ads ... */}
              <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
                <h3 className="text-2xl font-black">Gestão de Anúncios</h3>
                <input 

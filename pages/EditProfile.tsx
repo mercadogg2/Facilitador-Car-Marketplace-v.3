@@ -27,7 +27,6 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Prom
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-
       if (width > height) {
         if (width > maxWidth) {
           height *= maxWidth / width;
@@ -39,7 +38,6 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Prom
           height = maxHeight;
         }
       }
-
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -77,7 +75,6 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     location: '',
     stand_name: '',
     description: '',
-    newPassword: '',
     profile_image: '',
     slug: ''
   });
@@ -86,21 +83,26 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
     const fetchUserData = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.user) {
-          navigate('/login');
-          return;
-        }
+        if (!session?.user) { navigate('/login'); return; }
 
-        const role = session.user.user_metadata?.role || UserRole.VISITOR;
-        setUserRole(role);
+        setUserRole(session.user.user_metadata?.role || UserRole.VISITOR);
 
-        // Tentativa de busca segura
-        const { data: profile, error: fetchError } = await supabase
+        // Tentativa de busca segura. Se 'description' falhar, tentamos sem ela.
+        let { data: profile, error: fetchError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
+
+        if (fetchError && fetchError.message.includes('description')) {
+           // Se a coluna description der erro no select, buscamos apenas o básico
+           const { data: basicProfile } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, location, stand_name, profile_image, slug')
+            .eq('id', session.user.id)
+            .single();
+           profile = basicProfile;
+        }
 
         if (profile) {
           setFormData({
@@ -110,43 +112,18 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
             location: profile.location || '',
             stand_name: profile.stand_name || '',
             description: profile.description || '',
-            newPassword: '',
             profile_image: profile.profile_image || '',
             slug: profile.slug || ''
           });
         }
       } catch (err) {
-        console.error("Erro ao carregar perfil:", err);
+        console.error("Erro no carregamento:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchUserData();
   }, [navigate]);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64 = reader.result as string;
-          const compressed = await compressImage(base64);
-          setFormData(prev => ({ ...prev, profile_image: compressed }));
-          setError(null);
-        } catch (err) {
-          setError(lang === 'pt' ? 'Erro ao processar imagem.' : 'Error processing image.');
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,21 +138,16 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
       // 1. Atualizar Auth Metadata
       await supabase.auth.updateUser({
-        data: {
-          full_name: formData.name,
-          stand_name: formData.stand_name,
-          slug: newSlug
-        },
-        password: formData.newPassword || undefined
+        data: { full_name: formData.name, stand_name: formData.stand_name, slug: newSlug }
       });
       
-      // 2. Construir objeto de atualização de forma DEFENSIVA
-      // Se a coluna não existir, o erro será capturado mas saberemos exatamente qual foi
-      const profileUpdate: any = {
+      // 2. Preparar payload de atualização
+      const payload: any = {
         id: session.user.id,
         full_name: formData.name,
         phone: formData.phone,
         stand_name: formData.stand_name,
+        description: formData.description, // Tentamos enviar primeiro
         profile_image: formData.profile_image,
         location: formData.location,
         slug: newSlug,
@@ -183,69 +155,88 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         updated_at: new Date().toISOString()
       };
 
-      // Só incluímos description se tivermos certeza que ela deve ser gravada
-      if (formData.description) {
-        profileUpdate.description = formData.description;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert(profileUpdate);
+      // TENTATIVA 1: Upsert completo
+      const { error: profileError } = await supabase.from('profiles').upsert(payload);
 
       if (profileError) {
-        console.error("Erro técnico Supabase:", profileError);
-        
-        // Diagnóstico preciso
+        // Se o erro for especificamente sobre a coluna description ou cache
         if (profileError.message.includes('column "description"') || profileError.message.includes('schema cache')) {
-          setError('⚠️ ERRO DE BASE DE DADOS: A coluna "description" ainda não foi reconhecida pelo Supabase. \n\nSOLUÇÃO: Vá ao SQL Editor do Supabase, cole o script que está em lib/supabase.ts e clique em RUN. Depois, recarregue esta página.');
-          return;
+          console.warn("API Supabase desatualizada detectada. Removendo 'description' do payload...");
+          
+          // TENTATIVA 2: Upsert parcial (sem a coluna description)
+          const { description, ...safePayload } = payload;
+          const { error: secondTryError } = await supabase.from('profiles').upsert(safePayload);
+          
+          if (secondTryError) throw secondTryError;
+
+          setError('⚠️ Aviso: O seu perfil foi guardado, mas o campo "Descrição" não pôde ser gravado porque o Supabase ainda está a atualizar o cache interno. Por favor, tente editar a descrição novamente em alguns minutos.');
+          setIsSuccess(true);
+        } else {
+          throw profileError;
         }
-        
-        throw profileError;
+      } else {
+        setIsSuccess(true);
       }
 
-      setIsSuccess(true);
-      setTimeout(() => {
-        if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
-        else navigate('/cliente');
-      }, 2000);
+      if (isSuccess || !profileError) {
+        setTimeout(() => {
+          if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
+          else navigate('/cliente');
+        }, 4000);
+      }
 
     } catch (err: any) {
-      console.error("Erro ao gravar perfil:", err);
       setError(err.message || "Erro ao guardar dados.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const compressed = await compressImage(reader.result as string);
+          setFormData(prev => ({ ...prev, profile_image: compressed }));
+        } catch (err) { setError('Erro ao processar imagem.'); }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <header className="mb-12 flex justify-between items-end">
           <div>
-            <h1 className="text-4xl font-black text-gray-900 mb-2">{userRole === UserRole.STAND ? 'Perfil do Stand' : 'Meu Perfil'}</h1>
-            <p className="text-gray-500 font-medium">Mantenha os seus dados e identidade atualizados.</p>
+            <h1 className="text-4xl font-black text-gray-900 mb-2">Definições de Perfil</h1>
+            <p className="text-gray-500 font-medium">Controle como o seu stand é apresentado aos clientes.</p>
           </div>
           <button onClick={() => navigate(-1)} className="text-gray-400 font-bold hover:text-blue-600 transition-colors">
             <i className="fas fa-arrow-left mr-2"></i>{tc.back}
           </button>
         </header>
 
-        {isSuccess ? (
+        {isSuccess && !error ? (
           <div className="bg-white p-12 rounded-[40px] shadow-2xl text-center animate-in zoom-in">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
-            <h2 className="text-2xl font-black text-gray-900">{t.success}</h2>
-            <p className="text-gray-500 mt-2">Página de perfil atualizada.</p>
+            <h2 className="text-2xl font-black text-gray-900">Perfil Atualizado!</h2>
+            <p className="text-gray-500 mt-2">As suas alterações já estão visíveis na plataforma.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
-              <div className="p-8 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm animate-in shake duration-500 whitespace-pre-line">
-                <div className="flex items-center gap-3 mb-3 text-amber-600">
-                   <i className="fas fa-database text-xl"></i>
-                   <span className="font-black uppercase tracking-widest text-[10px]">Alerta de Sincronização</span>
+              <div className="p-8 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm whitespace-pre-line animate-in shake">
+                <div className="flex items-center gap-3 mb-2 text-amber-600 font-black uppercase tracking-widest text-[10px]">
+                  <i className="fas fa-database"></i> Sincronização em curso
                 </div>
                 {error}
               </div>
@@ -261,52 +252,36 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
                       formData.stand_name ? formData.stand_name[0].toUpperCase() : 'S'
                     )}
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-2 -right-2 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-blue-700 transition-all border-4 border-white group-hover:scale-110"
-                  >
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute -bottom-2 -right-2 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center border-4 border-white hover:scale-110 transition-transform">
                     <i className="fas fa-camera text-xl"></i>
                   </button>
                 </div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-6">Logótipo do Stand</p>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Nome Oficial do Stand</label>
-                  <input required name="stand_name" value={formData.stand_name} onChange={handleChange} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-bold transition-all" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Nome Oficial do Stand</label>
+                  <input required value={formData.stand_name} onChange={(e) => setFormData({...formData, stand_name: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Sobre o Stand (Descrição Pública)</label>
-                  <textarea 
-                    name="description" 
-                    value={formData.description} 
-                    onChange={handleChange} 
-                    rows={6} 
-                    placeholder="Descreva o seu stand e especialidades..." 
-                    className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium resize-none transition-all"
-                  />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição Pública</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={6} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" placeholder="Fale sobre a história e confiança do seu stand..." />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Cidade / Região</label>
-                  <input name="location" value={formData.location} onChange={handleChange} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-bold transition-all" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade / Região</label>
+                  <input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Telefone / WhatsApp</label>
-                  <input name="phone" value={formData.phone} onChange={handleChange} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-bold transition-all" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Contacto Direto</label>
+                  <input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
               </div>
             </section>
 
-            <button 
-              type="submit" 
-              disabled={isSubmitting} 
-              className="w-full py-7 bg-blue-600 text-white rounded-[35px] font-black text-2xl shadow-2xl hover:bg-blue-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
-            >
+            <button type="submit" disabled={isSubmitting} className="w-full py-7 bg-blue-600 text-white rounded-[35px] font-black text-2xl shadow-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-50">
               {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
-              {isSubmitting ? 'A Guardar...' : t.saveChanges}
+              {isSubmitting ? 'A Sincronizar...' : 'Guardar Alterações'}
             </button>
           </form>
         )}
