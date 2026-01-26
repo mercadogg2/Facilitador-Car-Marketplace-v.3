@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   VISITOR = 'visitor',
   STAND = 'stand',
@@ -53,6 +54,8 @@ export interface Lead {
   customer_email: string;
   customer_phone: string;
   car_id: string;
+  // Added stand_name to match database schema and fix TypeScript error in AdminDashboard
+  stand_name?: string;
   message: string;
   status: 'Pendente' | 'Contactado' | 'Vendido' | 'Cancelado';
   created_at: string;

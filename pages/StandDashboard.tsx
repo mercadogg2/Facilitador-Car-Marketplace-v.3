@@ -69,8 +69,11 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     }
   };
 
+  // Filtragem local imediata baseada no estado de 'active'
   const filteredMyCars = useMemo(() => {
-    if (adsFilter === 'active') return myCars.filter(c => (c.active ?? true));
+    if (adsFilter === 'active') {
+      return myCars.filter(c => (c.active ?? true) === true);
+    }
     return myCars.filter(c => c.active === false);
   }, [myCars, adsFilter]);
 
@@ -105,10 +108,11 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       if (error) throw error;
       
+      // Atualiza o estado local para forçar a re-filtragem imediata do grid
       setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
       console.error("Erro visibility:", err);
-      alert(lang === 'pt' ? "Erro ao alterar visibilidade." : "Error updating visibility.");
+      alert(lang === 'pt' ? "Erro ao alterar visibilidade no servidor." : "Server error updating visibility.");
     } finally {
       setIsToggling(null);
     }
@@ -116,8 +120,8 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const handleDeleteCar = async (carId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "🚨 ELIMINAÇÃO PERMANENTE: Deseja apagar este anúncio e todas as suas leads do sistema? Esta ação não pode ser desfeita." 
-      : "🚨 PERMANENT DELETE: Delete this ad and all its leads? This cannot be undone.";
+      ? "🚨 ELIMINAÇÃO PERMANENTE: Deseja apagar este anúncio definitivamente?" 
+      : "🚨 PERMANENT DELETE: Delete this ad permanently?";
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -134,7 +138,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       setMyLeads(prev => prev.filter(l => l.car_id !== carId));
     } catch (err: any) {
       console.error("Erro fatal ao eliminar:", err);
-      alert(lang === 'pt' ? "Não foi possível eliminar permanentemente." : "Delete failed.");
+      alert(lang === 'pt' ? "Não foi possível eliminar." : "Delete failed.");
     } finally {
       setIsDeleting(null);
     }
@@ -252,7 +256,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     onClick={() => setAdsFilter('active')}
                     className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'active' ? 'text-blue-600' : 'text-gray-400'}`}
                   >
-                    Ativos ({myCars.filter(c => c.active ?? true).length})
+                    Ativos ({myCars.filter(c => (c.active ?? true) === true).length})
                     {adsFilter === 'active' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
                   </button>
                   <button 
@@ -266,6 +270,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
                 {filteredMyCars.length === 0 ? (
                   <div className="py-20 text-center bg-white rounded-[40px] border border-dashed border-gray-200">
+                    <i className="fas fa-car-side text-3xl text-gray-100 mb-4 block"></i>
                     <p className="text-gray-400 font-bold">Nenhuma viatura nesta categoria.</p>
                   </div>
                 ) : (
@@ -278,7 +283,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                             <button 
                               onClick={(e) => { e.preventDefault(); handleToggleActive(car.id, car.active ?? true); }}
                               disabled={isToggling === car.id}
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
                             >
                               {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Ocultar' : 'Ativar')}
                             </button>
