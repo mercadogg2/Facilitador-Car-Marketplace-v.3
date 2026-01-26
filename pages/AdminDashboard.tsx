@@ -25,7 +25,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
   
   const [adSearch, setAdSearch] = useState('');
-  const [standSearch, setStandSearch] = useState('');
 
   const fetchPlatformData = async () => {
     setRefreshing(true);
@@ -62,19 +61,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     checkAuth();
   }, [role, navigate]);
 
-  const handleUpdateStatus = async (userId: string, newStatus: ProfileStatus) => {
-    setIsUpdatingStatus(userId);
-    try {
-      const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
-      if (error) throw error;
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-    } catch (err: any) {
-      alert("Erro ao atualizar status.");
-    } finally {
-      setIsUpdatingStatus(null);
-    }
-  };
-
   const handleToggleAdVisibility = async (carId: string, currentActive: boolean) => {
     setIsTogglingAd(carId);
     const targetStatus = !currentActive;
@@ -90,25 +76,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE (ADMIN): Apagar este anúncio e todos os dados relacionados (Leads) definitivamente?")) return;
-    
+    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE: Apagar este anúncio definitivamente?")) return;
     setIsDeletingCar(carId);
     try {
-      const { error } = await supabase
-        .from('cars')
-        .delete()
-        .eq('id', carId);
-
+      const { error } = await supabase.from('cars').delete().eq('id', carId);
       if (error) throw error;
-      
-      // Remove do estado local
       setAds(prev => prev.filter(a => a.id !== carId));
-      // Remove leads relacionadas da UI
-      setLeads(prev => prev.filter(l => l.car_id !== carId));
-
     } catch (err: any) {
-      console.error("Erro ao apagar anúncio:", err);
-      alert("Erro ao apagar permanentemente: " + (err.message || "Problema de servidor. Verifique se o CASCADE está ativo."));
+      alert("Erro ao apagar: " + err.message);
     } finally {
       setIsDeletingCar(null);
     }
@@ -125,7 +100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   return (
     <div className="bg-slate-50 min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <header className="flex justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
+        <header className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 gap-6">
           <div>
             <h1 className="text-4xl font-black text-slate-900">Admin Central</h1>
             <p className="text-slate-400 text-sm font-bold uppercase">Gestão da Plataforma</p>
@@ -196,26 +171,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         )}
 
         {activeTab === 'infra' && (
-           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
-            <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
-              <i className="fas fa-tools text-indigo-600"></i>
-              Reparação de Chaves Estrangeiras & RLS
-            </h3>
-            <p className="text-slate-500 mb-8 font-medium">Use este script se tiver erros ao apagar carros com leads associadas.</p>
-            <div className="bg-slate-900 rounded-[30px] p-8 relative group">
-              <button 
-                onClick={() => {
-                  const code = document.getElementById('sql-code')?.innerText;
-                  if (code) {
-                    navigator.clipboard.writeText(code);
-                    alert("Copiado!");
-                  }
-                }}
-                className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold"
-              >
-                Copiar
-              </button>
-              <pre id="sql-code" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+           <div className="space-y-8">
+             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
+              <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
+                <i className="fas fa-tools text-indigo-600"></i>
+                Reparação de Chaves Estrangeiras & RLS
+              </h3>
+              <p className="text-slate-500 mb-8 font-medium">Use este script se tiver erros ao apagar carros com leads associadas.</p>
+              <div className="bg-slate-900 rounded-[30px] p-8 relative group">
+                <button 
+                  onClick={() => {
+                    const code = document.getElementById('sql-code')?.innerText;
+                    if (code) {
+                      navigator.clipboard.writeText(code);
+                      alert("Copiado!");
+                    }
+                  }}
+                  className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                >
+                  Copiar
+                </button>
+                <pre id="sql-code" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
 {`-- REPARAÇÃO CASCADE (Permite apagar carro com leads)
 ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_car_id_fkey,
 ADD CONSTRAINT leads_car_id_fkey FOREIGN KEY (car_id) REFERENCES public.cars(id) ON DELETE CASCADE;
@@ -225,8 +201,66 @@ DROP POLICY IF EXISTS "Stands podem apagar os seus próprios carros" ON public.c
 CREATE POLICY "Permissões de Eliminação" ON public.cars FOR DELETE USING (auth.uid() = user_id OR auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt');
 
 NOTIFY pgrst, 'reload schema';`}
-              </pre>
-            </div>
+                </pre>
+              </div>
+             </div>
+
+             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
+              <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
+                <i className="fas fa-pen-nib text-indigo-600"></i>
+                Novos Artigos SEO (Blog Seeding)
+              </h3>
+              <p className="text-slate-500 mb-8 font-medium">Execute este SQL para adicionar os novos artigos focados em SEO à base de dados.</p>
+              <div className="bg-slate-900 rounded-[30px] p-8 relative group">
+                <button 
+                  onClick={() => {
+                    const code = document.getElementById('sql-blog')?.innerText;
+                    if (code) {
+                      navigator.clipboard.writeText(code);
+                      alert("Copiado!");
+                    }
+                  }}
+                  className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                >
+                  Copiar
+                </button>
+                <pre id="sql-blog" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+{`-- INSERÇÃO DE ARTIGOS SEO
+INSERT INTO public.blog_posts (id, title, excerpt, content, author, date, image, reading_time)
+VALUES
+(
+  gen_random_uuid(), 
+  'Guia Definitivo: Como verificar o histórico de um carro usado em Portugal', 
+  'Evite surpresas desagradáveis com o nosso guia completo de verificação mecânica e documental antes da compra.', 
+  'Comprar um carro usado pode ser uma experiência excitante, mas também repleta de incertezas. Em Portugal, existem diversas ferramentas que permitem ao comprador verificar a veracidade das informações fornecidas pelo vendedor.\n\nPrimeiro, solicite a Certidão de Inspeção Técnica de Veículo. Este documento revela se o carro teve reprovações anteriores e, crucialmente, se os quilómetros registados seguem uma linha lógica.\n\nSegundo, utilize o portal Automóvel Online para verificar se existem ónus ou encargos sobre a viatura. Um carro com penhoras pendentes não pode ser transferido legalmente.\n\nTerceiro, verifique o histórico de sinistros. Existem bases de dados que, através da matrícula, indicam se o veículo já esteve envolvido em acidentes graves que possam ter afetado a estrutura do chassis.\n\nNo Facilitador Car, garantimos que todos os nossos stands parceiros passam por uma auditoria de 12 pontos para que não tenha de se preocupar com estes detalhes.', 
+  'Equipa Facilitador', 
+  CURRENT_DATE, 
+  'https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&q=80&w=1200', 
+  '6 min'
+),
+(
+  gen_random_uuid(), 
+  'Diesel, Híbrido ou Elétrico? Qual a melhor escolha para o mercado português em 2026', 
+  'Analisamos as tendências de mercado, custos de manutenção e valor de revenda para ajudar na sua decisão.', 
+  'A escolha do combustível ideal nunca foi tão complexa em Portugal. Com as zonas de emissões reduzidas (ZER) a expandirem-se em Lisboa e Porto, a decisão entre combustão e eletrificação tornou-se estratégica.\n\nOs carros a Diesel continuam a ser os reis das autoestradas. Para quem faz mais de 20.000 km por ano, a economia de combustível e a autonomia ainda são imbatíveis, embora o valor de revenda a longo prazo comece a ser uma preocupação.\n\nOs Híbridos (PHEV) surgem como a "ponte" perfeita. Oferecem as vantagens fiscais e a suavidade do elétrico na cidade, sem a ansiedade da autonomia em viagens longas.\n\nOs Elétricos (EV) são agora uma realidade sólida no mercado de usados. Com a rede Mobi.E a expandir-se, o custo por quilómetro é drasticamente inferior. Se tem possibilidade de carregar em casa ou no trabalho, o elétrico é a escolha mais racional para 2026.\n\nNo nosso marketplace, pode filtrar por tipo de combustível para encontrar a solução que melhor se adapta ao seu estilo de vida.', 
+  'Carlos Silva', 
+  CURRENT_DATE, 
+  'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=1200', 
+  '8 min'
+),
+(
+  gen_random_uuid(), 
+  'Manutenção Preventiva: 5 Dicas para valorizar o seu carro na hora da revenda', 
+  'Saiba como pequenos cuidados diários podem significar mais mil euros na sua conta quando decidir trocar de viatura.', 
+  'O valor de um carro usado não depende apenas do ano e dos quilómetros. O estado de conservação e o histórico de manutenção são os fatores que realmente determinam o preço final numa negociação.\n\n1. Guarde todas as faturas: Um livro de revisões completo e faturas detalhadas de todas as intervenções transmitem uma confiança inabalável ao comprador.\n\n2. Cuide da pintura e interior: Pequenos toques e estofos sujos desvalorizam o carro de imediato. Um detalhe automóvel profissional antes da venda pode aumentar o valor percebido em centenas de euros.\n\n3. Verifique os pneus: Pneus de marca e com bom rasto indicam que o dono não poupou na segurança.\n\n4. Não ignore luzes no painel: Uma luz de "Check Engine" acesa é o maior repelente de compradores. Resolva pequenos problemas eletrónicos antes de anunciar.\n\n5. Documentação em dia: IUC pago e inspeção sem anotações são obrigatórios para uma venda rápida.\n\nSeguir estes passos garante que o seu carro será o primeiro a ser vendido no Facilitador Car.', 
+  'Ana Martins', 
+  CURRENT_DATE, 
+  'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=1200', 
+  '5 min'
+);`}
+                </pre>
+              </div>
+             </div>
            </div>
         )}
       </div>

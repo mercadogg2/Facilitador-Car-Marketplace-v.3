@@ -41,7 +41,8 @@ const About: React.FC<AboutProps> = ({ lang }) => {
           {t.values.map((v, i) => (
             <div key={i} className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 text-center">
               <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 text-2xl">
-                <i className={`fas ${['fa-shield-check', 'fa-handshake', 'fa-rocket'][i]}`}></i>
+                {/* Substituído fa-shield-check (Pro) por fa-shield-halved (Free) */}
+                <i className={`fas ${['fa-shield-halved', 'fa-handshake', 'fa-rocket'][i]}`}></i>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">{v.title}</h3>
               <p className="text-gray-500">{v.desc}</p>
