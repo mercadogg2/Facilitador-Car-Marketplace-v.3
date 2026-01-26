@@ -68,6 +68,25 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     }
   };
 
+  const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
+    setIsUpdatingLead(leadId);
+    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId);
+      
+      if (error) throw error;
+      
+      setMyLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
+    } catch (err: any) {
+      alert("Erro ao atualizar status do lead: " + err.message);
+    } finally {
+      setIsUpdatingLead(null);
+    }
+  };
+
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
     const targetStatus = !currentActive;
@@ -80,11 +99,10 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       if (error) throw error;
       
-      // Atualização de UI apenas se o servidor confirmar
       setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
       console.error("Erro visibility:", err);
-      alert(lang === 'pt' ? "Erro ao alterar visibilidade. Tente correr o script de reparação no painel admin." : "Error updating visibility.");
+      alert(lang === 'pt' ? "Erro ao alterar visibilidade." : "Error updating visibility.");
     } finally {
       setIsToggling(null);
     }
@@ -99,28 +117,18 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
     setIsDeleting(carId);
     try {
-      // DELETE direto no Supabase
       const { error } = await supabase
         .from('cars')
         .delete()
         .eq('id', carId);
 
-      if (error) {
-        console.error("Delete error details:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      // Feedback visual instantâneo: Remove da lista local
       setMyCars(prev => prev.filter(c => c.id !== carId));
-      
-      // Limpa leads órfãs do estado local se houver
       setMyLeads(prev => prev.filter(l => l.car_id !== carId));
-
     } catch (err: any) {
       console.error("Erro fatal ao eliminar:", err);
-      alert(lang === 'pt' 
-        ? "Não foi possível eliminar permanentemente. Motivo: " + (err.message || "Erro de permissão ou rede.")
-        : "Delete failed: " + err.message);
+      alert(lang === 'pt' ? "Não foi possível eliminar permanentemente." : "Delete failed.");
     } finally {
       setIsDeleting(null);
     }
@@ -193,19 +201,37 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                   </div>
                 ) : (
                   myLeads.map(lead => (
-                    <div key={lead.id} className={`bg-white p-8 rounded-[35px] shadow-sm border border-gray-100 ${lead.status === 'Contactado' ? 'opacity-60' : ''}`}>
+                    <div key={lead.id} className={`bg-white p-8 rounded-[35px] shadow-sm border border-gray-100 transition-all ${lead.status === 'Contactado' ? 'opacity-70 bg-gray-50/50' : ''}`}>
                       <div className="flex flex-col lg:flex-row justify-between gap-6">
-                        <div className="flex gap-6">
+                        <div className="flex gap-6 w-full">
                           <button 
+                            onClick={() => handleUpdateLeadStatus(lead.id, lead.status)}
                             disabled={isUpdatingLead === lead.id}
-                            className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${lead.status === 'Contactado' ? 'bg-green-500 text-white' : 'bg-white text-gray-300'}`}
+                            className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center border-2 transition-all active:scale-95 ${lead.status === 'Contactado' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-300 border-gray-100 hover:border-blue-400 hover:text-blue-400'}`}
+                            title={lead.status === 'Contactado' ? 'Marcar como Pendente' : 'Marcar como Contactado'}
                           >
-                            <i className="fas fa-check"></i>
+                            {isUpdatingLead === lead.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-check"></i>}
                           </button>
-                          <div>
-                            <h3 className="text-xl font-black text-gray-900">{lead.customer_name}</h3>
-                            <p className="text-sm text-blue-600 font-bold">{lead.customer_phone}</p>
-                            <p className="mt-4 text-gray-500 italic bg-gray-50 p-4 rounded-2xl">"{lead.message}"</p>
+                          <div className="flex-grow">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="text-xl font-black text-gray-900">{lead.customer_name}</h3>
+                                <p className="text-sm text-blue-600 font-bold flex items-center gap-2">
+                                  <i className="fas fa-phone-alt text-[10px]"></i>
+                                  {lead.customer_phone}
+                                </p>
+                              </div>
+                              <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {lead.status}
+                              </span>
+                            </div>
+                            <p className="mt-4 text-gray-500 italic bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-sm">
+                              "{lead.message}"
+                            </p>
+                            <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                               <span><i className="far fa-clock mr-1"></i> {new Date(lead.created_at).toLocaleDateString()}</span>
+                               <span><i className="fas fa-car mr-1"></i> {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Genérica'}</span>
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -13,12 +13,13 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'stands' | 'ads' | 'leads' | 'infra'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'leads' | 'stands' | 'ads' | 'infra'>('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isTogglingAd, setIsTogglingAd] = useState<string | null>(null);
   const [isDeletingCar, setIsDeletingCar] = useState<string | null>(null);
+  const [isUpdatingLead, setIsUpdatingLead] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -61,6 +62,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     };
     checkAuth();
   }, [role, navigate]);
+
+  const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
+    setIsUpdatingLead(leadId);
+    // Garantir valores normalizados para a DB
+    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId);
+      
+      if (error) throw error;
+      
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
+    } catch (err: any) {
+      alert("Erro ao persistir status do lead: " + err.message);
+    } finally {
+      setIsUpdatingLead(null);
+    }
+  };
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
     setIsUpdatingStatus(userId);
@@ -176,12 +197,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                     <th className="px-8 py-5">Interesse / Viatura</th>
                     <th className="px-8 py-5">Stand Destino</th>
                     <th className="px-8 py-5">Data</th>
-                    <th className="px-8 py-5 text-right">Status</th>
+                    <th className="px-8 py-5 text-right">Status / Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {leads.map(lead => (
-                    <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={lead.id} className={`hover:bg-slate-50/50 transition-colors ${lead.status === 'Contactado' ? 'opacity-70' : ''}`}>
                       <td className="px-8 py-6">
                         <p className="font-bold text-slate-900">{lead.customer_name}</p>
                         <p className="text-xs text-indigo-600 font-bold">{lead.customer_phone}</p>
@@ -205,9 +226,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         {new Date(lead.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${lead.status === 'Pendente' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                          {lead.status}
-                        </span>
+                        <button 
+                          onClick={() => handleUpdateLeadStatus(lead.id, lead.status)}
+                          disabled={isUpdatingLead === lead.id}
+                          className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full transition-all active:scale-95 ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                        >
+                          {isUpdatingLead === lead.id ? <i className="fas fa-spinner animate-spin"></i> : lead.status}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -356,9 +381,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
              <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
               <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
                 <i className="fas fa-tools text-indigo-600"></i>
-                Reparação de Chaves Estrangeiras & RLS
+                Reparação de Base de Dados (Fix Leads & Status)
               </h3>
-              <p className="text-slate-500 mb-8 font-medium">Use este script se tiver erros ao apagar carros com leads associadas.</p>
+              <p className="text-slate-500 mb-8 font-medium">Execute este script para garantir que o status das leads é guardado permanentemente e as permissões estão corretas.</p>
               <div className="bg-slate-900 rounded-[30px] p-8 relative group">
                 <button 
                   onClick={() => {
@@ -373,11 +398,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   Copiar
                 </button>
                 <pre id="sql-code" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
-{`-- REPARAÇÃO CASCADE (Permite apagar carro com leads)
+{`-- 1. GARANTIR COLUNA STATUS NAS LEADS
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendente';
+
+-- 2. REPARAÇÃO CASCADE (Permite apagar carro com leads)
 ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_car_id_fkey,
 ADD CONSTRAINT leads_car_id_fkey FOREIGN KEY (car_id) REFERENCES public.cars(id) ON DELETE CASCADE;
 
--- POLÍTICAS RLS ATUALIZADAS (Permitir Admin/Dono apagar)
+-- 3. PERMISSÕES DE UPDATE PARA LEADS (Fix Marcação Contactado)
+DROP POLICY IF EXISTS "Permitir Update Leads" ON public.leads;
+CREATE POLICY "Permitir Update Leads" ON public.leads FOR UPDATE USING (true) WITH CHECK (true);
+
+-- 4. POLÍTICAS RLS ATUALIZADAS PARA CARROS
 DROP POLICY IF EXISTS "Stands podem apagar os seus próprios carros" ON public.cars;
 CREATE POLICY "Permissões de Eliminação" ON public.cars FOR DELETE USING (auth.uid() = user_id OR auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt');
 
@@ -413,7 +445,7 @@ VALUES
   gen_random_uuid(), 
   'Guia Definitivo: Como verificar o histórico de um carro usado em Portugal', 
   'Evite surpresas desagradáveis com o nosso guia completo de verificação mecânica e documental antes da compra.', 
-  'Comprar um carro usado pode ser uma experiência excitante, mas também repleta de incertezas. Em Portugal, existem diversas ferramentas que permitem ao comprador verificar a veracidade das informações fornecidas pelo vendedor.\\n\\nPrimeiro, solicite a Certidão de Inspeção Técnica de Veículo. Este documento revela se o carro teve reprovações anteriores e, crucialmente, se os quilómetros registados seguem uma linha lógica.\\n\\nSegundo, utilize o portal Automóvel Online para verificar se existem ónus ou encargos sobre a viatura. Um carro com penhoras pendentes não pode ser transferido legalmente.\\n\\nTerceiro, verifique o histórico de sinistros. Existem bases de dados que, através da matrícula, indicam se o veículo já esteve envolvido em acidentes graves que possam ter afetado a estrutura do chassis.\\n\\nNo Facilitador Car, garantimos que todos os nossos stands parceiros passam por uma auditoria de 12 pontos para que não tenha de se preocupar com estes detalhes.', 
+  'Comprar um carro usado pode ser uma experiência excitante, mas também repleta de incertezas. Em Portugal, existem diversas ferramentas que permitem ao comprador verificar a veracidade das informações fornecidas pelo vendedor.\\n\\nPrimeiro, solicite a Certidão de Inspeção Técnica de Veículo. Este documento revela se o carro teve reprovações anteriores e, crucialmente, se os quilómetros registados seguem uma linha lógica.\\n\\nSegundo, utilize o portal Automóvel Online para verificar se existem ónus or encargos sobre a viatura. Um carro com penhoras pendentes não pode ser transferido legalmente.\\n\\nTerceiro, verifique o histórico de sinistros. Existem bases de dados que, através da matrícula, indicam se o veículo já esteve envolvido em acidentes graves que possam ter afetado a estrutura do chassis.\\n\\nNo Facilitador Car, garantimos que todos os nossos stands parceiros passam por uma auditoria de 12 pontos para que não tenha de se preocupar com estes detalhes.', 
   'Equipa Facilitador', 
   CURRENT_DATE, 
   'https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&q=80&w=1200', 
