@@ -68,25 +68,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     }
   };
 
-  const handleToggleLeadStatus = async (leadId: string, currentStatus: string) => {
-    setIsUpdatingLead(leadId);
-    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
-    
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ status: newStatus })
-        .eq('id', leadId);
-
-      if (error) throw error;
-      setMyLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
-    } catch (err: any) {
-      alert(lang === 'pt' ? "Erro ao atualizar lead." : "Error updating lead.");
-    } finally {
-      setIsUpdatingLead(null);
-    }
-  };
-
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
     const targetStatus = !currentActive;
@@ -99,11 +80,11 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       if (error) throw error;
       
-      // Atualização imediata do estado local para refletir na UI
+      // Atualização de UI apenas se o servidor confirmar
       setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
-      console.error("Erro ao alternar status:", err);
-      alert(lang === 'pt' ? "Erro ao alterar visibilidade: " + err.message : "Error changing visibility.");
+      console.error("Erro visibility:", err);
+      alert(lang === 'pt' ? "Erro ao alterar visibilidade. Tente correr o script de reparação no painel admin." : "Error updating visibility.");
     } finally {
       setIsToggling(null);
     }
@@ -111,27 +92,35 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const handleDeleteCar = async (carId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "Deseja remover este anúncio definitivamente? Todas as leads associadas serão também removidas." 
-      : "Delete this ad permanently? All associated leads will also be removed.";
+      ? "🚨 ELIMINAÇÃO PERMANENTE: Deseja apagar este anúncio e todas as suas leads do sistema? Esta ação não pode ser desfeita." 
+      : "🚨 PERMANENT DELETE: Delete this ad and all its leads? This cannot be undone.";
     
     if (!window.confirm(confirmMsg)) return;
 
     setIsDeleting(carId);
     try {
+      // DELETE direto no Supabase
       const { error } = await supabase
         .from('cars')
         .delete()
         .eq('id', carId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Delete error details:", error);
+        throw error;
+      }
       
-      // Remove do estado local para feedback instantâneo
+      // Feedback visual instantâneo: Remove da lista local
       setMyCars(prev => prev.filter(c => c.id !== carId));
+      
+      // Limpa leads órfãs do estado local se houver
+      setMyLeads(prev => prev.filter(l => l.car_id !== carId));
+
     } catch (err: any) {
-      console.error("Erro ao eliminar car:", err);
+      console.error("Erro fatal ao eliminar:", err);
       alert(lang === 'pt' 
-        ? "Erro ao eliminar: Pode haver um problema de ligação ou permissões." 
-        : "Error deleting.");
+        ? "Não foi possível eliminar permanentemente. Motivo: " + (err.message || "Erro de permissão ou rede.")
+        : "Delete failed: " + err.message);
     } finally {
       setIsDeleting(null);
     }
@@ -208,7 +197,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       <div className="flex flex-col lg:flex-row justify-between gap-6">
                         <div className="flex gap-6">
                           <button 
-                            onClick={() => handleToggleLeadStatus(lead.id, lead.status)}
+                            disabled={isUpdatingLead === lead.id}
                             className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${lead.status === 'Contactado' ? 'bg-green-500 text-white' : 'bg-white text-gray-300'}`}
                           >
                             <i className="fas fa-check"></i>

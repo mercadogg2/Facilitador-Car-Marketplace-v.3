@@ -18,6 +18,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isTogglingAd, setIsTogglingAd] = useState<string | null>(null);
+  const [isDeletingCar, setIsDeletingCar] = useState<string | null>(null);
   
   const [ads, setAds] = useState<Car[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -89,13 +90,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("Apagar anúncio permanentemente?")) return;
+    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE (ADMIN): Apagar este anúncio e todos os dados relacionados (Leads) definitivamente?")) return;
+    
+    setIsDeletingCar(carId);
     try {
-      const { error } = await supabase.from('cars').delete().eq('id', carId);
+      const { error } = await supabase
+        .from('cars')
+        .delete()
+        .eq('id', carId);
+
       if (error) throw error;
+      
+      // Remove do estado local
       setAds(prev => prev.filter(a => a.id !== carId));
+      // Remove leads relacionadas da UI
+      setLeads(prev => prev.filter(l => l.car_id !== carId));
+
     } catch (err: any) {
-      alert("Erro ao apagar anúncio.");
+      console.error("Erro ao apagar anúncio:", err);
+      alert("Erro ao apagar permanentemente: " + (err.message || "Problema de servidor. Verifique se o CASCADE está ativo."));
+    } finally {
+      setIsDeletingCar(null);
     }
   };
 
@@ -115,9 +130,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
             <h1 className="text-4xl font-black text-slate-900">Admin Central</h1>
             <p className="text-slate-400 text-sm font-bold uppercase">Gestão da Plataforma</p>
           </div>
-          <nav className="flex bg-slate-100 p-1.5 rounded-2xl">
+          <nav className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
             {['overview', 'stands', 'ads', 'infra'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{tab}</button>
             ))}
           </nav>
         </header>
@@ -157,13 +172,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       <td className="px-8 py-6 text-center">
                         <button 
                           onClick={() => handleToggleAdVisibility(a.id, a.active ?? true)}
+                          disabled={isTogglingAd === a.id}
                           className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase ${ (a.active ?? true) ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' }`}
                         >
                           {a.active ?? true ? 'Ativo' : 'Oculto'}
                         </button>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <button onClick={() => handleDeleteCar(a.id)} className="text-red-400 hover:text-red-600"><i className="fas fa-trash"></i></button>
+                        <button 
+                          onClick={() => handleDeleteCar(a.id)} 
+                          disabled={isDeletingCar === a.id}
+                          className="text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          {isDeletingCar === a.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -173,20 +195,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {/* Mantém a aba Infra para permitir reparar se necessário */}
         {activeTab === 'infra' && (
            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
-            <h3 className="text-2xl font-black mb-4">Ação de Reparação RLS & Cascade</h3>
-            <p className="text-slate-500 mb-8 font-medium">Se tiver erros ao apagar ou ocultar carros, copie e corra o script no SQL Editor.</p>
-            <div className="bg-slate-900 rounded-[30px] p-8">
-              <pre className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
-{`-- REPARAÇÃO CASCADE
+            <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
+              <i className="fas fa-tools text-indigo-600"></i>
+              Reparação de Chaves Estrangeiras & RLS
+            </h3>
+            <p className="text-slate-500 mb-8 font-medium">Use este script se tiver erros ao apagar carros com leads associadas.</p>
+            <div className="bg-slate-900 rounded-[30px] p-8 relative group">
+              <button 
+                onClick={() => {
+                  const code = document.getElementById('sql-code')?.innerText;
+                  if (code) {
+                    navigator.clipboard.writeText(code);
+                    alert("Copiado!");
+                  }
+                }}
+                className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold"
+              >
+                Copiar
+              </button>
+              <pre id="sql-code" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+{`-- REPARAÇÃO CASCADE (Permite apagar carro com leads)
 ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_car_id_fkey,
 ADD CONSTRAINT leads_car_id_fkey FOREIGN KEY (car_id) REFERENCES public.cars(id) ON DELETE CASCADE;
 
--- POLÍTICAS RLS PARA STANDS
-CREATE POLICY "Stands podem apagar os seus próprios carros" ON public.cars FOR DELETE USING (auth.uid() = user_id);
-CREATE POLICY "Stands podem atualizar os seus próprios carros" ON public.cars FOR UPDATE USING (auth.uid() = user_id);
+-- POLÍTICAS RLS ATUALIZADAS (Permitir Admin/Dono apagar)
+DROP POLICY IF EXISTS "Stands podem apagar os seus próprios carros" ON public.cars;
+CREATE POLICY "Permissões de Eliminação" ON public.cars FOR DELETE USING (auth.uid() = user_id OR auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt');
 
 NOTIFY pgrst, 'reload schema';`}
               </pre>
