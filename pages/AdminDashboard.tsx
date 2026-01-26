@@ -13,7 +13,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'stands' | 'users' | 'ads' | 'leads' | 'infra'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'stands' | 'ads' | 'leads' | 'infra'>('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
@@ -25,6 +25,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
   
   const [adSearch, setAdSearch] = useState('');
+  const [standSearch, setStandSearch] = useState('');
 
   const fetchPlatformData = async () => {
     setRefreshing(true);
@@ -61,6 +62,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     checkAuth();
   }, [role, navigate]);
 
+  const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
+    setIsUpdatingStatus(userId);
+    try {
+      const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
+      if (error) throw error;
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    } catch (err: any) {
+      alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setIsUpdatingStatus(null);
+    }
+  };
+
   const handleToggleAdVisibility = async (carId: string, currentActive: boolean) => {
     setIsTogglingAd(carId);
     const targetStatus = !currentActive;
@@ -95,31 +109,198 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       (a.model || '').toLowerCase().includes(adSearch.toLowerCase())
     ), [ads, adSearch]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
+  const filteredStands = useMemo(() => 
+    users.filter(u => 
+      u.role === UserRole.STAND && 
+      (u.stand_name || '').toLowerCase().includes(standSearch.toLowerCase())
+    ), [users, standSearch]);
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   return (
     <div className="bg-slate-50 min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 gap-6">
-          <div>
-            <h1 className="text-4xl font-black text-slate-900">Admin Central</h1>
-            <p className="text-slate-400 text-sm font-bold uppercase">Gestão da Plataforma</p>
+          <div className="flex items-center gap-4">
+             <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl shadow-lg">
+                <i className="fas fa-user-shield"></i>
+             </div>
+             <div>
+                <h1 className="text-4xl font-black text-slate-900 leading-tight">Admin Central</h1>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Painel de Gestão Facilitador</p>
+             </div>
           </div>
           <nav className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
-            {['overview', 'stands', 'ads', 'infra'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{tab}</button>
+            {['overview', 'leads', 'stands', 'ads', 'infra'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
+                {tab === 'ads' ? 'Anúncios' : tab}
+              </button>
             ))}
           </nav>
         </header>
 
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {[
+              { label: 'Total Leads', val: leads.length, color: 'bg-blue-600', icon: 'fa-paper-plane' },
+              { label: 'Anúncios Ativos', val: ads.filter(a => a.active).length, color: 'bg-green-600', icon: 'fa-car' },
+              { label: 'Stands Verificados', val: users.filter(u => u.role === UserRole.STAND && u.status === 'approved').length, color: 'bg-indigo-600', icon: 'fa-store' },
+              { label: 'Pendentes', val: users.filter(u => u.status === 'pending').length, color: 'bg-amber-500', icon: 'fa-clock' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
+                <div className={`${stat.color} w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm mb-4`}>
+                  <i className={`fas ${stat.icon}`}></i>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <h4 className="text-3xl font-black text-slate-900 mt-1">{stat.val}</h4>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'leads' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
+              <h3 className="text-2xl font-black">Histórico de Leads</h3>
+              <div className="text-xs font-bold text-slate-400">Total: {leads.length} contactos</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Cliente</th>
+                    <th className="px-8 py-5">Interesse / Viatura</th>
+                    <th className="px-8 py-5">Stand Destino</th>
+                    <th className="px-8 py-5">Data</th>
+                    <th className="px-8 py-5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {leads.map(lead => (
+                    <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-6">
+                        <p className="font-bold text-slate-900">{lead.customer_name}</p>
+                        <p className="text-xs text-indigo-600 font-bold">{lead.customer_phone}</p>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-8 bg-slate-100 rounded-lg overflow-hidden shrink-0">
+                            {lead.car?.image && <img src={lead.car.image} className="w-full h-full object-cover" alt="" />}
+                          </div>
+                          <p className="text-sm font-bold text-slate-700">
+                            {lead.car ? `${lead.car.brand} ${lead.car.model}` : 'Viatura removida'}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className="text-xs font-black uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                          {lead.stand_name || 'Particular'}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-xs text-slate-400 font-bold">
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${lead.status === 'Pendente' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                          {lead.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'stands' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
+              <h3 className="text-2xl font-black">Gestão de Stands</h3>
+              <input 
+                type="text" 
+                placeholder="Pesquisar stand..." 
+                className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                value={standSearch}
+                onChange={(e) => setStandSearch(e.target.value)}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Stand</th>
+                    <th className="px-8 py-5">Localização / E-mail</th>
+                    <th className="px-8 py-5 text-center">Status Atual</th>
+                    <th className="px-8 py-5 text-right">Ações de Aprovação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredStands.map(stand => (
+                    <tr key={stand.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black">
+                            {stand.stand_name?.[0] || 'S'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{stand.stand_name}</p>
+                            <p className="text-[10px] text-slate-400 uppercase font-black">Membro desde {new Date(stand.created_at).getFullYear()}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-sm">
+                        <p className="font-bold text-slate-600">{stand.location || 'Sem Localização'}</p>
+                        <p className="text-xs text-slate-400">{stand.email}</p>
+                      </td>
+                      <td className="px-8 py-6 text-center">
+                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${
+                          stand.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                          stand.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {stand.status === 'approved' ? 'Verificado' : stand.status === 'pending' ? 'Em Análise' : 'Rejeitado'}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            disabled={isUpdatingStatus === stand.id || stand.status === 'approved'}
+                            onClick={() => handleUpdateUserStatus(stand.id, 'approved')}
+                            className="w-10 h-10 rounded-xl bg-green-500 text-white hover:bg-green-600 disabled:opacity-30 transition-all flex items-center justify-center shadow-md shadow-green-100"
+                            title="Aprovar Stand"
+                          >
+                            <i className="fas fa-check"></i>
+                          </button>
+                          <button 
+                            disabled={isUpdatingStatus === stand.id || stand.status === 'rejected'}
+                            onClick={() => handleUpdateUserStatus(stand.id, 'rejected')}
+                            className="w-10 h-10 rounded-xl bg-red-500 text-white hover:bg-red-600 disabled:opacity-30 transition-all flex items-center justify-center shadow-md shadow-red-100"
+                            title="Rejeitar / Bloquear"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'ads' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
               <h3 className="text-2xl font-black">Anúncios da Plataforma</h3>
               <input 
                 type="text" 
                 placeholder="Pesquisar anúncios..." 
-                className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-sm"
+                className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 value={adSearch}
                 onChange={(e) => setAdSearch(e.target.value)}
               />
@@ -171,7 +352,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         )}
 
         {activeTab === 'infra' && (
-           <div className="space-y-8">
+           <div className="space-y-8 animate-in fade-in duration-500">
              <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
               <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
                 <i className="fas fa-tools text-indigo-600"></i>
@@ -232,7 +413,7 @@ VALUES
   gen_random_uuid(), 
   'Guia Definitivo: Como verificar o histórico de um carro usado em Portugal', 
   'Evite surpresas desagradáveis com o nosso guia completo de verificação mecânica e documental antes da compra.', 
-  'Comprar um carro usado pode ser uma experiência excitante, mas também repleta de incertezas. Em Portugal, existem diversas ferramentas que permitem ao comprador verificar a veracidade das informações fornecidas pelo vendedor.\n\nPrimeiro, solicite a Certidão de Inspeção Técnica de Veículo. Este documento revela se o carro teve reprovações anteriores e, crucialmente, se os quilómetros registados seguem uma linha lógica.\n\nSegundo, utilize o portal Automóvel Online para verificar se existem ónus ou encargos sobre a viatura. Um carro com penhoras pendentes não pode ser transferido legalmente.\n\nTerceiro, verifique o histórico de sinistros. Existem bases de dados que, através da matrícula, indicam se o veículo já esteve envolvido em acidentes graves que possam ter afetado a estrutura do chassis.\n\nNo Facilitador Car, garantimos que todos os nossos stands parceiros passam por uma auditoria de 12 pontos para que não tenha de se preocupar com estes detalhes.', 
+  'Comprar um carro usado pode ser uma experiência excitante, mas também repleta de incertezas. Em Portugal, existem diversas ferramentas que permitem ao comprador verificar a veracidade das informações fornecidas pelo vendedor.\\n\\nPrimeiro, solicite a Certidão de Inspeção Técnica de Veículo. Este documento revela se o carro teve reprovações anteriores e, crucialmente, se os quilómetros registados seguem uma linha lógica.\\n\\nSegundo, utilize o portal Automóvel Online para verificar se existem ónus ou encargos sobre a viatura. Um carro com penhoras pendentes não pode ser transferido legalmente.\\n\\nTerceiro, verifique o histórico de sinistros. Existem bases de dados que, através da matrícula, indicam se o veículo já esteve envolvido em acidentes graves que possam ter afetado a estrutura do chassis.\\n\\nNo Facilitador Car, garantimos que todos os nossos stands parceiros passam por uma auditoria de 12 pontos para que não tenha de se preocupar com estes detalhes.', 
   'Equipa Facilitador', 
   CURRENT_DATE, 
   'https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&q=80&w=1200', 
@@ -242,7 +423,7 @@ VALUES
   gen_random_uuid(), 
   'Diesel, Híbrido ou Elétrico? Qual a melhor escolha para o mercado português em 2026', 
   'Analisamos as tendências de mercado, custos de manutenção e valor de revenda para ajudar na sua decisão.', 
-  'A escolha do combustível ideal nunca foi tão complexa em Portugal. Com as zonas de emissões reduzidas (ZER) a expandirem-se em Lisboa e Porto, a decisão entre combustão e eletrificação tornou-se estratégica.\n\nOs carros a Diesel continuam a ser os reis das autoestradas. Para quem faz mais de 20.000 km por ano, a economia de combustível e a autonomia ainda são imbatíveis, embora o valor de revenda a longo prazo comece a ser uma preocupação.\n\nOs Híbridos (PHEV) surgem como a "ponte" perfeita. Oferecem as vantagens fiscais e a suavidade do elétrico na cidade, sem a ansiedade da autonomia em viagens longas.\n\nOs Elétricos (EV) são agora uma realidade sólida no mercado de usados. Com a rede Mobi.E a expandir-se, o custo por quilómetro é drasticamente inferior. Se tem possibilidade de carregar em casa ou no trabalho, o elétrico é a escolha mais racional para 2026.\n\nNo nosso marketplace, pode filtrar por tipo de combustível para encontrar a solução que melhor se adapta ao seu estilo de vida.', 
+  'A escolha do combustível ideal nunca foi tão complexa em Portugal. Com as zonas de emissões reduzidas (ZER) a expandirem-se em Lisboa e Porto, a decisão entre combustão e eletrificação tornou-se estratégica.\\n\\nOs carros a Diesel continuam a ser os reis das autoestradas. Para quem faz mais de 20.000 km por ano, a economia de combustível e a autonomia ainda são imbatíveis, embora o valor de revenda a longo prazo comece a ser uma preocupação.\\n\\nOs Híbridos (PHEV) surgem como a "ponte" perfeita. Oferecem as vantagens fiscais e a suavidade do elétrico na cidade, sem a ansiedade da autonomia em viagens longas.\\n\\nOs Elétricos (EV) são agora uma realidade sólida no mercado de usados. Com a rede Mobi.E a expandir-se, o custo por quilómetro é drasticamente inferior. Se tem possibilidade de carregar em casa ou no trabalho, o elétrico é a escolha mais racional para 2026.\\n\\nNo nosso marketplace, pode filtrar por tipo de combustível para encontrar a solução que melhor se adapta ao seu estilo de vida.', 
   'Carlos Silva', 
   CURRENT_DATE, 
   'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=1200', 
@@ -252,7 +433,7 @@ VALUES
   gen_random_uuid(), 
   'Manutenção Preventiva: 5 Dicas para valorizar o seu carro na hora da revenda', 
   'Saiba como pequenos cuidados diários podem significar mais mil euros na sua conta quando decidir trocar de viatura.', 
-  'O valor de um carro usado não depende apenas do ano e dos quilómetros. O estado de conservação e o histórico de manutenção são os fatores que realmente determinam o preço final numa negociação.\n\n1. Guarde todas as faturas: Um livro de revisões completo e faturas detalhadas de todas as intervenções transmitem uma confiança inabalável ao comprador.\n\n2. Cuide da pintura e interior: Pequenos toques e estofos sujos desvalorizam o carro de imediato. Um detalhe automóvel profissional antes da venda pode aumentar o valor percebido em centenas de euros.\n\n3. Verifique os pneus: Pneus de marca e com bom rasto indicam que o dono não poupou na segurança.\n\n4. Não ignore luzes no painel: Uma luz de "Check Engine" acesa é o maior repelente de compradores. Resolva pequenos problemas eletrónicos antes de anunciar.\n\n5. Documentação em dia: IUC pago e inspeção sem anotações são obrigatórios para uma venda rápida.\n\nSeguir estes passos garante que o seu carro será o primeiro a ser vendido no Facilitador Car.', 
+  'O valor de um carro usado não depende apenas do ano e dos quilómetros. O estado de conservação e o histórico de manutenção são os fatores que realmente determinam o preço final numa negociação.\\n\\n1. Guarde todas as faturas: Um livro de revisões completo e faturas detalhadas de todas as intervenções transmitem uma confiança inabalável ao comprador.\\n\\n2. Cuide da pintura e interior: Pequenos toques e estofos sujos desvalorizam o carro de imediato. Um detalhe automóvel profissional antes da venda pode aumentar o valor percebido em centenas de euros.\\n\\n3. Verifique os pneus: Pneus de marca e com bom rasto indicam que o dono não poupou na segurança.\\n\\n4. Não ignore luzes no painel: Uma luz de "Check Engine" acesa é o maior repelente de compradores. Resolva pequenos problemas eletrónicos antes de anunciar.\\n\\n5. Documentação em dia: IUC pago e inspeção sem anotações são obrigatórios para uma venda rápida.\\n\\nSeguir estes passos garante que o seu carro será o primeiro a ser vendido no Facilitador Car.', 
   'Ana Martins', 
   CURRENT_DATE, 
   'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=1200', 

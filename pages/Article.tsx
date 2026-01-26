@@ -51,6 +51,31 @@ const Article: React.FC<ArticleProps> = ({ lang }) => {
     if (id) fetchArticle();
   }, [id]);
 
+  const handleShare = (platform: 'facebook' | 'twitter' | 'whatsapp') => {
+    if (!article) return;
+
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(article.title);
+    
+    let shareUrl = '';
+    
+    switch (platform) {
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+        break;
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${text}%20${url}`;
+        break;
+    }
+
+    if (shareUrl) {
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -119,13 +144,25 @@ const Article: React.FC<ArticleProps> = ({ lang }) => {
             <div className="mt-16 pt-8 border-t border-gray-100 flex items-center justify-between">
               <span className="font-bold text-gray-900">{tc.share}:</span>
               <div className="flex space-x-4">
-                <button className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors">
+                <button 
+                  onClick={() => handleShare('facebook')}
+                  className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-110 shadow-lg"
+                  title="Partilhar no Facebook"
+                >
                   <i className="fab fa-facebook-f"></i>
                 </button>
-                <button className="w-10 h-10 rounded-full bg-blue-400 text-white flex items-center justify-center hover:bg-blue-500 transition-colors">
+                <button 
+                  onClick={() => handleShare('twitter')}
+                  className="w-10 h-10 rounded-full bg-blue-400 text-white flex items-center justify-center hover:bg-blue-500 transition-all hover:scale-110 shadow-lg"
+                  title="Partilhar no X (Twitter)"
+                >
                   <i className="fab fa-twitter"></i>
                 </button>
-                <button className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-colors">
+                <button 
+                  onClick={() => handleShare('whatsapp')}
+                  className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition-all hover:scale-110 shadow-lg"
+                  title="Partilhar no WhatsApp"
+                >
                   <i className="fab fa-whatsapp"></i>
                 </button>
               </div>
