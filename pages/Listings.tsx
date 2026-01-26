@@ -33,6 +33,7 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
 
   useEffect(() => {
     const fetchMetadata = async () => {
+      // Metadados também devem respeitar viaturas ativas
       const { data } = await supabase.from('cars').select('brand, category').eq('active', true);
       if (data) {
         setBrands(Array.from(new Set(data.map(c => c.brand))));
@@ -45,9 +46,11 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
   useEffect(() => {
     const fetchCars = async () => {
       setLoading(true);
+      // FILTRO CRÍTICO: active deve ser true
       let query = supabase.from('cars').select('*').eq('active', true);
 
       if (searchQuery) {
+        // Garantir que a pesquisa textual não quebre o filtro de 'active'
         query = query.or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       }
       if (filters.brand) {

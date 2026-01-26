@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Language, Car, Lead, UserRole, ProfileStatus, UserProfile } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -13,6 +13,7 @@ interface DashboardProps {
 const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'leads' | 'ads'>('leads');
+  const [adsFilter, setAdsFilter] = useState<'active' | 'hidden'>('active');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [myLeads, setMyLeads] = useState<Lead[]>([]);
   const [myCars, setMyCars] = useState<Car[]>([]);
@@ -67,6 +68,11 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       setRefreshing(false);
     }
   };
+
+  const filteredMyCars = useMemo(() => {
+    if (adsFilter === 'active') return myCars.filter(c => (c.active ?? true));
+    return myCars.filter(c => c.active === false);
+  }, [myCars, adsFilter]);
 
   const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
     setIsUpdatingLead(leadId);
@@ -240,37 +246,62 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myCars.map(car => (
-                  <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm transition-all ${!(car.active ?? true) ? 'opacity-50 grayscale' : ''}`}>
-                    <div className="relative h-48">
-                      <img src={car.image} className="w-full h-full object-cover" alt="" />
-                      <div className="absolute top-4 left-4">
-                        <button 
-                          onClick={(e) => { e.preventDefault(); handleToggleActive(car.id, car.active ?? true); }}
-                          disabled={isToggling === car.id}
-                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
-                        >
-                          {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Visível' : 'Oculto')}
-                        </button>
-                      </div>
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
-                        <button 
-                          onClick={() => handleDeleteCar(car.id)} 
-                          disabled={isDeleting === car.id}
-                          className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
-                        >
-                          {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <h4 className="font-black text-gray-900">{car.brand} {car.model}</h4>
-                      <p className="text-blue-600 font-black">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
-                    </div>
+              <div className="space-y-8">
+                <div className="flex gap-4 border-b border-gray-100">
+                  <button 
+                    onClick={() => setAdsFilter('active')}
+                    className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'active' ? 'text-blue-600' : 'text-gray-400'}`}
+                  >
+                    Ativos ({myCars.filter(c => c.active ?? true).length})
+                    {adsFilter === 'active' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
+                  </button>
+                  <button 
+                    onClick={() => setAdsFilter('hidden')}
+                    className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'hidden' ? 'text-blue-600' : 'text-gray-400'}`}
+                  >
+                    Ocultos ({myCars.filter(c => c.active === false).length})
+                    {adsFilter === 'hidden' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
+                  </button>
+                </div>
+
+                {filteredMyCars.length === 0 ? (
+                  <div className="py-20 text-center bg-white rounded-[40px] border border-dashed border-gray-200">
+                    <p className="text-gray-400 font-bold">Nenhuma viatura nesta categoria.</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredMyCars.map(car => (
+                      <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm transition-all animate-in fade-in zoom-in duration-300 ${!(car.active ?? true) ? 'bg-gray-50/50' : ''}`}>
+                        <div className="relative h-48">
+                          <img src={car.image} className={`w-full h-full object-cover transition-all ${!(car.active ?? true) ? 'grayscale' : ''}`} alt="" />
+                          <div className="absolute top-4 left-4">
+                            <button 
+                              onClick={(e) => { e.preventDefault(); handleToggleActive(car.id, car.active ?? true); }}
+                              disabled={isToggling === car.id}
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
+                            >
+                              {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Ocultar' : 'Ativar')}
+                            </button>
+                          </div>
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
+                            <button 
+                              onClick={() => handleDeleteCar(car.id)} 
+                              disabled={isDeleting === car.id}
+                              className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                            >
+                              {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <h4 className="font-black text-gray-900">{car.brand} {car.model}</h4>
+                          <p className="text-blue-600 font-black">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
