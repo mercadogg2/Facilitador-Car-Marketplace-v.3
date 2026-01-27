@@ -65,7 +65,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .eq('id', carId);
 
       if (error) {
-        alert(`Erro de permissão: ${error.message}\nVerifique se executou o script SQL na aba Admin.`);
+        alert(`Não foi possível alterar: ${error.message} (Código: ${error.code})`);
         return;
       }
       
@@ -78,11 +78,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   };
 
   const handleDeleteCar = async (carId: string) => {
-    const confirmMsg = lang === 'pt' 
-      ? "⚠️ ELIMINAÇÃO DEFINITIVA: Deseja apagar este carro e todos os seus leads associados?"
-      : "⚠️ PERMANENT DELETE: Are you sure you want to delete this car and all its leads?";
-
-    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm("ELIMINAR DEFINITIVAMENTE? Esta viatura e todos os seus pedidos de contacto serão apagados.")) return;
 
     setIsDeleting(carId);
     try {
@@ -92,8 +88,8 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .eq('id', carId);
 
       if (error) {
-        console.error("Delete error:", error);
-        alert(`Não foi possível apagar: ${error.message}\nMotivo: Chaves estrangeiras ou RLS.`);
+        console.error("Delete detailed error:", error);
+        alert(`ERRO AO APAGAR (${error.code}): ${error.message}\n\nSe o erro for '23503', contacte o administrador para ativar o CASCADE DELETE.`);
         return;
       }
       
@@ -123,7 +119,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col lg:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 gap-6">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg shadow-blue-100">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg">
               {profile?.profile_image ? <img src={profile.profile_image} className="w-full h-full object-cover" alt="" /> : (profile?.stand_name?.[0] || 'S')}
             </div>
             <div>
@@ -140,7 +136,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             <button onClick={() => setActiveTab('leads')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'leads' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Leads ({myLeads.length})</button>
             <button onClick={() => setActiveTab('ads')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'ads' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Stock ({myCars.length})</button>
           </div>
-          <Link to="/anunciar" className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-2"><i className="fas fa-plus"></i> Novo Anúncio</Link>
+          <Link to="/anunciar" className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2"><i className="fas fa-plus"></i> Novo Anúncio</Link>
         </header>
 
         {isApproved ? (
@@ -148,68 +144,49 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             {activeTab === 'ads' ? (
               <div className="space-y-8">
                 <div className="flex gap-4 border-b border-slate-100">
-                  <button onClick={() => setAdsFilter('active')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest relative transition-all ${adsFilter === 'active' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                    Anúncios Ativos ({myCars.filter(c => (c.active ?? true)).length})
+                  <button onClick={() => setAdsFilter('active')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest relative transition-all ${adsFilter === 'active' ? 'text-blue-600' : 'text-slate-400'}`}>
+                    Online ({myCars.filter(c => (c.active ?? true)).length})
                     {adsFilter === 'active' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
                   </button>
-                  <button onClick={() => setAdsFilter('hidden')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest relative transition-all ${adsFilter === 'hidden' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                    Anúncios Ocultos ({myCars.filter(c => !(c.active ?? true)).length})
+                  <button onClick={() => setAdsFilter('hidden')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest relative transition-all ${adsFilter === 'hidden' ? 'text-blue-600' : 'text-slate-400'}`}>
+                    Ocultos ({myCars.filter(c => !(c.active ?? true)).length})
                     {adsFilter === 'hidden' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
                   </button>
                 </div>
                 
-                {filteredMyCars.length === 0 ? (
-                  <div className="bg-white p-20 rounded-[40px] text-center border-2 border-dashed border-slate-200">
-                     <p className="text-slate-400 font-bold">Sem viaturas nesta categoria.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredMyCars.map(car => (
-                      <div key={car.id} className={`bg-white rounded-[40px] overflow-hidden border border-slate-100 shadow-sm transition-all hover:shadow-xl group ${!(car.active ?? true) ? 'opacity-70' : ''}`}>
-                        <div className="relative h-56 bg-slate-100">
-                          <img src={car.image} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700" alt="" />
-                          <div className="absolute top-5 left-5">
-                            <button 
-                              onClick={() => handleToggleActive(car.id, car.active ?? true)} 
-                              disabled={isToggling === car.id} 
-                              className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl backdrop-blur-md transition-all active:scale-95 ${ (car.active ?? true) ? 'bg-green-600/90 text-white' : 'bg-slate-900/90 text-white' }`}
-                            >
-                              {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Online' : 'Oculto')}
-                            </button>
-                          </div>
-                          <div className="absolute top-5 right-5 flex gap-2">
-                            <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-blue-600 shadow-lg hover:bg-white active:scale-90 transition-all"><i className="fas fa-edit"></i></Link>
-                            <button 
-                              onClick={() => handleDeleteCar(car.id)} 
-                              disabled={isDeleting === car.id} 
-                              className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-90 transition-all"
-                            >
-                              {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
-                            </button>
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredMyCars.map(car => (
+                    <div key={car.id} className={`bg-white rounded-[40px] overflow-hidden border border-slate-100 shadow-sm transition-all group ${!(car.active ?? true) ? 'opacity-70' : ''}`}>
+                      <div className="relative h-56 bg-slate-100">
+                        <img src={car.image} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute top-5 left-5">
+                          <button onClick={() => handleToggleActive(car.id, car.active ?? true)} disabled={isToggling === car.id} className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all ${ (car.active ?? true) ? 'bg-green-600 text-white' : 'bg-slate-900 text-white' }`}>
+                            {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Online' : 'Oculto')}
+                          </button>
                         </div>
-                        <div className="p-8">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-black text-slate-900 text-lg leading-tight truncate mr-4">{car.brand} {car.model}</h4>
-                            <span className="font-black text-blue-600">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(car.price)}</span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year} • {car.mileage.toLocaleString()} KM</p>
+                        <div className="absolute top-5 right-5 flex gap-2">
+                          <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
+                          <button onClick={() => handleDeleteCar(car.id)} disabled={isDeleting === car.id} className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg">
+                            {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="p-8">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-black text-slate-900 text-lg truncate mr-4">{car.brand} {car.model}</h4>
+                          <span className="font-black text-blue-600">{formatCurrency(car.price, lang)}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{car.year} • {car.mileage.toLocaleString()} KM</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
-                 {myLeads.length === 0 ? (
-                   <div className="bg-white p-24 rounded-[40px] text-center border-2 border-dashed border-slate-200">
-                     <i className="fas fa-paper-plane text-4xl text-slate-100 mb-6"></i>
-                     <p className="text-slate-400 font-bold">Ainda não recebeu pedidos de contacto.</p>
-                   </div>
-                 ) : (
+                 {myLeads.length === 0 ? <div className="bg-white p-24 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-gray-400 font-bold">Sem leads no momento.</div> : 
                    myLeads.map(lead => (
-                    <div key={lead.id} className={`bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-md ${lead.status === 'Contactado' ? 'bg-slate-50/50' : ''}`}>
+                    <div key={lead.id} className={`bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all ${lead.status === 'Contactado' ? 'bg-slate-50/50 grayscale opacity-60' : ''}`}>
                       <div className="flex flex-col lg:flex-row justify-between gap-8">
                         <div className="flex gap-8 w-full">
                           <div className="w-16 h-16 shrink-0 rounded-[25px] flex items-center justify-center bg-blue-50 text-blue-600 shadow-inner">
@@ -219,39 +196,36 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                             <div className="flex justify-between items-start mb-4">
                               <div>
                                 <h3 className="text-xl font-black text-slate-900">{lead.customer_name}</h3>
-                                <p className="text-sm text-blue-600 font-bold">{lead.customer_phone} • {lead.customer_email}</p>
+                                <p className="text-sm text-blue-600 font-bold">{lead.customer_phone}</p>
                               </div>
-                              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-sm ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
+                              <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                                 {lead.status}
                               </span>
                             </div>
-                            <div className="bg-slate-50 p-6 rounded-[30px] border border-slate-100 mb-4">
-                              <p className="text-slate-600 text-sm leading-relaxed italic">"{lead.message}"</p>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                               <i className="fas fa-car text-blue-400"></i> Interesse: {lead.cars?.brand} {lead.cars?.model}
+                            <div className="bg-slate-50 p-6 rounded-[30px] border border-slate-100">
+                              <p className="text-slate-600 text-sm italic">"{lead.message}"</p>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                    ))
-                 )}
+                 }
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-amber-50 p-24 rounded-[60px] text-center border-4 border-dashed border-amber-100 animate-in zoom-in">
-             <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-[30px] flex items-center justify-center text-3xl mx-auto mb-8 shadow-xl shadow-amber-900/5">
-                <i className="fas fa-user-clock"></i>
-             </div>
+          <div className="bg-amber-50 p-24 rounded-[60px] text-center border-4 border-dashed border-amber-100">
+             <i className="fas fa-user-clock text-4xl text-amber-600 mb-6"></i>
              <h2 className="text-3xl font-black text-amber-900 mb-4">Verificação em Curso</h2>
-             <p className="text-amber-700 max-w-md mx-auto font-medium">O seu stand está a ser analisado pela nossa equipa de auditoria. Receberá um e-mail assim que puder começar a publicar.</p>
+             <p className="text-amber-700 max-w-md mx-auto">A sua conta está a ser analisada. Poderá gerir o stock assim que for aprovado.</p>
           </div>
         )}
       </div>
     </div>
   );
 };
+
+const formatCurrency = (amount: number, lang: string) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
 
 export default StandDashboard;
