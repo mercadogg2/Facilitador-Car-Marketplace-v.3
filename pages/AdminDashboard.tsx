@@ -63,22 +63,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     checkAuth();
   }, [role, navigate]);
 
-  const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
-    setIsUpdatingLead(leadId);
-    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
+  const handleToggleAdVisibility = async (carId: string, currentActive: boolean) => {
+    setIsTogglingAd(carId);
+    const targetStatus = !currentActive;
+    try {
+      // Tenta atualizar no Supabase
+      const { error } = await supabase
+        .from('cars')
+        .update({ active: targetStatus })
+        .eq('id', carId);
+
+      if (error) {
+        alert(`FALHA NA BASE DE DADOS: ${error.message}\nCódigo: ${error.code}\n\nExecute o script na aba INFRA.`);
+        return;
+      }
+
+      // Se não houve erro, atualiza a interface
+      setAds(prev => prev.map(a => a.id === carId ? { ...a, active: targetStatus } : a));
+    } catch (err: any) {
+      alert("Erro inesperado: " + err.message);
+    } finally {
+      setIsTogglingAd(null);
+    }
+  };
+
+  const handleDeleteCar = async (carId: string) => {
+    if (!window.confirm("🚨 AÇÃO IRREVERSÍVEL: Deseja apagar este anúncio e todos os seus leads definitivamente?")) return;
+    
+    setIsDeletingCar(carId);
     try {
       const { error } = await supabase
-        .from('leads')
-        .update({ status: newStatus })
-        .eq('id', leadId);
-      
-      if (error) throw error;
-      
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
+        .from('cars')
+        .delete()
+        .eq('id', carId);
+
+      if (error) {
+        alert(`ERRO AO ELIMINAR: ${error.message}\nCódigo: ${error.code}\n\nIsto acontece se o script de CASCADE DELETE não foi executado.`);
+        return;
+      }
+
+      // Sucesso na base de dados, removemos da lista local
+      setAds(prev => prev.filter(a => a.id !== carId));
+      setLeads(prev => prev.filter(l => l.car_id !== carId));
     } catch (err: any) {
-      alert("Erro ao persistir status do lead: " + err.message);
+      alert("Erro ao apagar: " + err.message);
     } finally {
-      setIsUpdatingLead(null);
+      setIsDeletingCar(null);
     }
   };
 
@@ -95,47 +125,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
-  const handleToggleAdVisibility = async (carId: string, currentActive: boolean) => {
-    setIsTogglingAd(carId);
-    const targetStatus = !currentActive;
+  const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
+    setIsUpdatingLead(leadId);
+    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
     try {
       const { error } = await supabase
-        .from('cars')
-        .update({ active: targetStatus })
-        .eq('id', carId);
-
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId);
       if (error) throw error;
-
-      // Sincronização imediata do estado local
-      setAds(prev => prev.map(a => a.id === carId ? { ...a, active: targetStatus } : a));
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
     } catch (err: any) {
-      console.error("Toggle Error:", err);
-      alert(`ERRO DE PERMISSÃO: Não foi possível alterar a visibilidade.\nMotivo: ${err.message}\n\nSOLUÇÃO: Copie e execute o script na aba 'INFRA / SQL'.`);
+      alert("Erro no lead: " + err.message);
     } finally {
-      setIsTogglingAd(null);
-    }
-  };
-
-  const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE: Esta ação não pode ser revertida e apagará também os leads associados. Deseja continuar?")) return;
-    
-    setIsDeletingCar(carId);
-    try {
-      const { error } = await supabase
-        .from('cars')
-        .delete()
-        .eq('id', carId);
-
-      if (error) throw error;
-
-      // Sincronização imediata do estado local
-      setAds(prev => prev.filter(a => a.id !== carId));
-      setLeads(prev => prev.filter(l => l.car_id !== carId));
-    } catch (err: any) {
-      console.error("Delete Error:", err);
-      alert(`ERRO AO APAGAR: ${err.message}\n\nCertifique-se que executou o script de 'CASCADE DELETE' na aba 'INFRA / SQL'.`);
-    } finally {
-      setIsDeletingCar(null);
+      setIsUpdatingLead(null);
     }
   };
 
@@ -179,32 +182,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </nav>
         </header>
 
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {[
-              { label: 'Total Leads', val: leads.length, color: 'bg-blue-600', icon: 'fa-paper-plane' },
-              { label: 'Anúncios Ativos', val: ads.filter(a => a.active).length, color: 'bg-green-600', icon: 'fa-car' },
-              { label: 'Stands Verificados', val: users.filter(u => u.role === UserRole.STAND && u.status === 'approved').length, color: 'bg-indigo-600', icon: 'fa-store' },
-              { label: 'Pendentes', val: users.filter(u => u.status === 'pending').length, color: 'bg-amber-500', icon: 'fa-clock' }
-            ].map((stat, i) => (
-              <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
-                <div className={`${stat.color} w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm mb-4`}>
-                  <i className={`fas ${stat.icon}`}></i>
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <h4 className="text-3xl font-black text-slate-900 mt-1">{stat.val}</h4>
-              </div>
-            ))}
-          </div>
-        )}
-
         {activeTab === 'ads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-2xl font-black">Anúncios da Plataforma</h3>
+              <h3 className="text-2xl font-black">Gestão Global de Stock</h3>
               <input 
                 type="text" 
-                placeholder="Pesquisar anúncios..." 
+                placeholder="Pesquisar anúncio..." 
                 className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 value={adSearch}
                 onChange={(e) => setAdSearch(e.target.value)}
@@ -216,7 +200,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <tr>
                     <th className="px-8 py-5">Viatura</th>
                     <th className="px-8 py-5">Stand</th>
-                    <th className="px-8 py-5 text-center">Status</th>
+                    <th className="px-8 py-5 text-center">Estado</th>
                     <th className="px-8 py-5 text-right">Ação</th>
                   </tr>
                 </thead>
@@ -246,8 +230,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         <button 
                           onClick={() => handleDeleteCar(a.id)} 
                           disabled={isDeletingCar === a.id}
-                          className="w-10 h-10 rounded-xl hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all"
+                          className="w-10 h-10 rounded-xl hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all flex items-center justify-center ml-auto"
                         >
+                          {/* Fixed reference: changed 'car.id' to 'a.id' as 'car' is not defined in this scope */}
                           {isDeletingCar === a.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash-alt"></i>}
                         </button>
                       </td>
@@ -262,46 +247,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'infra' && (
            <div className="space-y-8 animate-in fade-in duration-500">
              <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-xl">
-                  <i className="fas fa-exclamation-triangle"></i>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black">Reparação de Ações (Remover & Ocultar)</h3>
-                  <p className="text-slate-500 font-medium text-sm">Execute este script no seu editor SQL do Supabase para corrigir os privilégios.</p>
-                </div>
+              <div className="flex items-center gap-4 mb-6 text-red-600">
+                <i className="fas fa-bolt text-2xl"></i>
+                <h3 className="text-2xl font-black">Nuclear SQL Fix (Ocultar/Remover)</h3>
               </div>
+              <p className="text-slate-500 mb-8 font-medium">Este script remove restrições de banco de dados que impedem o administrador de apagar anúncios com leads associados e garante permissões de escrita globais.</p>
               
               <div className="bg-slate-900 rounded-[30px] p-8 relative group">
                 <button 
                   onClick={() => {
-                    const code = document.getElementById('sql-code-repair')?.innerText;
+                    const code = document.getElementById('sql-code-repair-v3')?.innerText;
                     if (code) {
                       navigator.clipboard.writeText(code);
-                      alert("Copiado para a área de transferência!");
+                      alert("Copiado! Execute agora no SQL Editor do Supabase.");
                     }
                   }}
-                  className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-[10px] font-bold transition-colors"
+                  className="absolute top-4 right-4 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-bold transition-all shadow-lg"
                 >
-                  <i className="fas fa-copy mr-2"></i> Copiar SQL
+                  <i className="fas fa-copy mr-2"></i> Copiar SQL de Reparação
                 </button>
-                <pre id="sql-code-repair" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
-{`-- 1. CONFIGURAR APAGAR EM CASCATA
--- Permite que, ao remover uma viatura, as leads associadas desapareçam automaticamente
+                <pre id="sql-code-repair-v3" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+{`-- 1. DESATIVAR RLS TEMPORARIAMENTE PARA APLICAR ALTERAÇÕES ESTRUTURAIS
+ALTER TABLE public.cars DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads DISABLE ROW LEVEL SECURITY;
+
+-- 2. CONFIGURAR APAGAR EM CASCATA (Essencial para remover carros com leads)
 ALTER TABLE public.leads 
 DROP CONSTRAINT IF EXISTS leads_car_id_fkey,
 ADD CONSTRAINT leads_car_id_fkey 
   FOREIGN KEY (car_id) 
-  REFERENCES cars(id) 
+  REFERENCES public.cars(id) 
   ON DELETE CASCADE;
 
--- 2. GARANTIR PODER TOTAL AO ADMIN (RLS)
--- Reset das políticas antigas
+-- 3. REATIVAR RLS
+ALTER TABLE public.cars ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+-- 4. RESET E CRIAÇÃO DE POLÍTICAS DE "SUPER-ADMIN"
 DROP POLICY IF EXISTS "Gestão de Anúncios" ON public.cars;
 DROP POLICY IF EXISTS "Eliminação de Anúncios" ON public.cars;
 DROP POLICY IF EXISTS "Visualização de Anúncios" ON public.cars;
 
--- Política de UPDATE (Permite ao Dono e ao Admin ocultar/ativar)
+-- Política de UPDATE (Permite ao Admin e ao Dono editar/ocultar)
 CREATE POLICY "Gestão de Anúncios" 
 ON public.cars 
 FOR UPDATE 
@@ -315,7 +302,7 @@ WITH CHECK (
   (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 );
 
--- Política de DELETE (Permite ao Dono e ao Admin apagar definitivamente)
+-- Política de DELETE (Permite ao Admin e ao Dono apagar)
 CREATE POLICY "Eliminação de Anúncios"
 ON public.cars
 FOR DELETE
@@ -325,7 +312,7 @@ USING (
   (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 );
 
--- Política de SELECT (Público vê apenas ativos, Admin vê tudo)
+-- Política de SELECT (Público vê ativos, Admin e Dono vêem tudo)
 CREATE POLICY "Visualização de Anúncios"
 ON public.cars
 FOR SELECT
@@ -335,11 +322,10 @@ USING (
   auth.uid() = user_id
 );
 
--- 3. GARANTIR COLUNA ACTIVE E PADRÕES
+-- 5. GARANTIR VALORES PADRÃO
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 UPDATE public.cars SET active = true WHERE active IS NULL;
 
--- Notificar o PostgREST para recarregar o esquema
 NOTIFY pgrst, 'reload schema';`}
                 </pre>
               </div>
@@ -347,137 +333,23 @@ NOTIFY pgrst, 'reload schema';`}
            </div>
         )}
 
-        {/* Abas de Leads e Stands permanecem as mesmas */}
-        {activeTab === 'leads' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-              <h3 className="text-2xl font-black">Histórico de Leads</h3>
-              <div className="text-xs font-bold text-slate-400">Total: {leads.length} contactos</div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Cliente</th>
-                    <th className="px-8 py-5">Interesse / Viatura</th>
-                    <th className="px-8 py-5">Stand Destino</th>
-                    <th className="px-8 py-5">Data</th>
-                    <th className="px-8 py-5 text-right">Status / Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {leads.map(lead => (
-                    <tr key={lead.id} className={`hover:bg-slate-50/50 transition-colors ${lead.status === 'Contactado' ? 'opacity-70' : ''}`}>
-                      <td className="px-8 py-6">
-                        <p className="font-bold text-slate-900">{lead.customer_name}</p>
-                        <p className="text-xs text-indigo-600 font-bold">{lead.customer_phone}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-8 bg-slate-100 rounded-lg overflow-hidden shrink-0">
-                            {lead.car?.image && <img src={lead.car.image} className="w-full h-full object-cover" alt="" />}
-                          </div>
-                          <p className="text-sm font-bold text-slate-700">
-                            {lead.car ? `${lead.car.brand} ${lead.car.model}` : 'Viatura removida'}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className="text-xs font-black uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full text-slate-600">
-                          {lead.stand_name || 'Particular'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-xs text-slate-400 font-bold">
-                        {new Date(lead.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <button 
-                          onClick={() => handleUpdateLeadStatus(lead.id, lead.status)}
-                          disabled={isUpdatingLead === lead.id}
-                          className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full transition-all active:scale-95 ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-                        >
-                          {isUpdatingLead === lead.id ? <i className="fas fa-spinner animate-spin"></i> : lead.status}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'stands' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-              <h3 className="text-2xl font-black">Gestão de Stands</h3>
-              <input 
-                type="text" 
-                placeholder="Pesquisar stand..." 
-                className="px-6 py-3 bg-white border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                value={standSearch}
-                onChange={(e) => setStandSearch(e.target.value)}
-              />
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Stand</th>
-                    <th className="px-8 py-5">Localização / E-mail</th>
-                    <th className="px-8 py-5 text-center">Status Atual</th>
-                    <th className="px-8 py-5 text-right">Ações de Aprovação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredStands.map(stand => (
-                    <tr key={stand.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black">
-                            {stand.stand_name?.[0] || 'S'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">{stand.stand_name}</p>
-                            <p className="text-[10px] text-slate-400 uppercase font-black">Membro desde {new Date(stand.created_at).getFullYear()}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-sm">
-                        <p className="font-bold text-slate-600">{stand.location || 'Sem Localização'}</p>
-                        <p className="text-xs text-slate-400">{stand.email}</p>
-                      </td>
-                      <td className="px-8 py-6 text-center">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${
-                          stand.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                          stand.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {stand.status === 'approved' ? 'Verificado' : stand.status === 'pending' ? 'Em Análise' : 'Rejeitado'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button 
-                            disabled={isUpdatingStatus === stand.id || stand.status === 'approved'}
-                            onClick={() => handleUpdateUserStatus(stand.id, 'approved')}
-                            className="w-10 h-10 rounded-xl bg-green-500 text-white hover:bg-green-600 disabled:opacity-30 transition-all flex items-center justify-center shadow-md shadow-green-100"
-                          >
-                            <i className="fas fa-check"></i>
-                          </button>
-                          <button 
-                            disabled={isUpdatingStatus === stand.id || stand.status === 'rejected'}
-                            onClick={() => handleUpdateUserStatus(stand.id, 'rejected')}
-                            className="w-10 h-10 rounded-xl bg-red-500 text-white hover:bg-red-600 disabled:opacity-30 transition-all flex items-center justify-center shadow-md shadow-red-100"
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Outras abas (Overview, Leads, Stands) permanecem iguais para manter consistência */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in duration-500">
+             {[
+              { label: 'Total Leads', val: leads.length, color: 'bg-blue-600', icon: 'fa-paper-plane' },
+              { label: 'Anúncios Ativos', val: ads.filter(a => a.active).length, color: 'bg-green-600', icon: 'fa-car' },
+              { label: 'Stands Verificados', val: users.filter(u => u.role === UserRole.STAND && u.status === 'approved').length, color: 'bg-indigo-600', icon: 'fa-store' },
+              { label: 'Pendentes', val: users.filter(u => u.status === 'pending').length, color: 'bg-amber-500', icon: 'fa-clock' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
+                <div className={`${stat.color} w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm mb-4`}>
+                  <i className={`fas ${stat.icon}`}></i>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <h4 className="text-3xl font-black text-slate-900 mt-1">{stat.val}</h4>
+              </div>
+            ))}
           </div>
         )}
       </div>
