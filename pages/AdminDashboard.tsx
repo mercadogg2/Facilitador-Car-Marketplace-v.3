@@ -99,25 +99,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     setIsTogglingAd(carId);
     const targetStatus = !currentActive;
     try {
-      const { error } = await supabase.from('cars').update({ active: targetStatus }).eq('id', carId);
+      const { error } = await supabase
+        .from('cars')
+        .update({ active: targetStatus })
+        .eq('id', carId);
+
       if (error) throw error;
+
+      // Sincronização imediata do estado local
       setAds(prev => prev.map(a => a.id === carId ? { ...a, active: targetStatus } : a));
     } catch (err: any) {
-      alert("Erro ao alterar visibilidade: " + err.message + "\nCertifique-se que o RLS está correto via aba 'Infra'.");
+      console.error("Toggle Error:", err);
+      alert(`ERRO DE PERMISSÃO: Não foi possível alterar a visibilidade.\nMotivo: ${err.message}\n\nSOLUÇÃO: Copie e execute o script na aba 'INFRA / SQL'.`);
     } finally {
       setIsTogglingAd(null);
     }
   };
 
   const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE: Apagar este anúncio definitivamente?")) return;
+    if (!window.confirm("🚨 ELIMINAÇÃO PERMANENTE: Esta ação não pode ser revertida e apagará também os leads associados. Deseja continuar?")) return;
+    
     setIsDeletingCar(carId);
     try {
-      const { error } = await supabase.from('cars').delete().eq('id', carId);
+      const { error } = await supabase
+        .from('cars')
+        .delete()
+        .eq('id', carId);
+
       if (error) throw error;
+
+      // Sincronização imediata do estado local
       setAds(prev => prev.filter(a => a.id !== carId));
+      setLeads(prev => prev.filter(l => l.car_id !== carId));
     } catch (err: any) {
-      alert("Erro ao apagar: " + err.message);
+      console.error("Delete Error:", err);
+      alert(`ERRO AO APAGAR: ${err.message}\n\nCertifique-se que executou o script de 'CASCADE DELETE' na aba 'INFRA / SQL'.`);
     } finally {
       setIsDeletingCar(null);
     }
@@ -157,7 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           <nav className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
             {['overview', 'leads', 'stands', 'ads', 'infra'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
-                {tab === 'ads' ? 'Anúncios' : tab}
+                {tab === 'ads' ? 'Anúncios' : tab === 'infra' ? 'Infra / SQL' : tab}
               </button>
             ))}
           </nav>
@@ -246,33 +262,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         {activeTab === 'infra' && (
            <div className="space-y-8 animate-in fade-in duration-500">
              <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
-              <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
-                <i className="fas fa-tools text-indigo-600"></i>
-                Reparação Total de Permissões (Fix Admin & Hide)
-              </h3>
-              <p className="text-slate-500 mb-8 font-medium">Este script garante que o Administrador (`admin@facilitadorcar.pt`) e os donos de anúncios consigam ocultar/ativar viaturas sem erros de permissão.</p>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-xl">
+                  <i className="fas fa-exclamation-triangle"></i>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black">Reparação de Ações (Remover & Ocultar)</h3>
+                  <p className="text-slate-500 font-medium text-sm">Execute este script no seu editor SQL do Supabase para corrigir os privilégios.</p>
+                </div>
+              </div>
+              
               <div className="bg-slate-900 rounded-[30px] p-8 relative group">
                 <button 
                   onClick={() => {
-                    const code = document.getElementById('sql-code-admin')?.innerText;
+                    const code = document.getElementById('sql-code-repair')?.innerText;
                     if (code) {
                       navigator.clipboard.writeText(code);
-                      alert("Copiado!");
+                      alert("Copiado para a área de transferência!");
                     }
                   }}
-                  className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                  className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-[10px] font-bold transition-colors"
                 >
-                  Copiar SQL
+                  <i className="fas fa-copy mr-2"></i> Copiar SQL
                 </button>
-                <pre id="sql-code-admin" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
-{`-- 1. GARANTIR COLUNA ACTIVE E VALORES PADRÃO
-ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
-UPDATE public.cars SET active = true WHERE active IS NULL;
+                <pre id="sql-code-repair" className="text-indigo-100 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+{`-- 1. CONFIGURAR APAGAR EM CASCATA
+-- Permite que, ao remover uma viatura, as leads associadas desapareçam automaticamente
+ALTER TABLE public.leads 
+DROP CONSTRAINT IF EXISTS leads_car_id_fkey,
+ADD CONSTRAINT leads_car_id_fkey 
+  FOREIGN KEY (car_id) 
+  REFERENCES cars(id) 
+  ON DELETE CASCADE;
 
--- 2. RESET DE POLÍTICAS PARA CARROS (Admin tem poder total)
+-- 2. GARANTIR PODER TOTAL AO ADMIN (RLS)
+-- Reset das políticas antigas
 DROP POLICY IF EXISTS "Gestão de Anúncios" ON public.cars;
-DROP POLICY IF EXISTS "Dono pode atualizar carro" ON public.cars;
-DROP POLICY IF EXISTS "Admin pode gerir tudo" ON public.cars;
+DROP POLICY IF EXISTS "Eliminação de Anúncios" ON public.cars;
+DROP POLICY IF EXISTS "Visualização de Anúncios" ON public.cars;
 
 -- Política de UPDATE (Permite ao Dono e ao Admin ocultar/ativar)
 CREATE POLICY "Gestão de Anúncios" 
@@ -288,8 +315,7 @@ WITH CHECK (
   (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 );
 
--- Política de DELETE (Permite ao Dono e ao Admin apagar)
-DROP POLICY IF EXISTS "Eliminação de Anúncios" ON public.cars;
+-- Política de DELETE (Permite ao Dono e ao Admin apagar definitivamente)
 CREATE POLICY "Eliminação de Anúncios"
 ON public.cars
 FOR DELETE
@@ -299,8 +325,7 @@ USING (
   (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 );
 
--- Política de SELECT (Público vê apenas Ativos, Admin vê tudo)
-DROP POLICY IF EXISTS "Public can see cars" ON public.cars;
+-- Política de SELECT (Público vê apenas ativos, Admin vê tudo)
 CREATE POLICY "Visualização de Anúncios"
 ON public.cars
 FOR SELECT
@@ -310,6 +335,11 @@ USING (
   auth.uid() = user_id
 );
 
+-- 3. GARANTIR COLUNA ACTIVE E PADRÕES
+ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+UPDATE public.cars SET active = true WHERE active IS NULL;
+
+-- Notificar o PostgREST para recarregar o esquema
 NOTIFY pgrst, 'reload schema';`}
                 </pre>
               </div>
@@ -317,6 +347,7 @@ NOTIFY pgrst, 'reload schema';`}
            </div>
         )}
 
+        {/* Abas de Leads e Stands permanecem as mesmas */}
         {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
              <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">

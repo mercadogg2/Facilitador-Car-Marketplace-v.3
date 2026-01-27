@@ -69,7 +69,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     }
   };
 
-  // Filtragem local imediata baseada no estado de 'active'
   const filteredMyCars = useMemo(() => {
     if (adsFilter === 'active') {
       return myCars.filter(c => (c.active ?? true) === true);
@@ -77,29 +76,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
     return myCars.filter(c => c.active === false);
   }, [myCars, adsFilter]);
 
-  const handleUpdateLeadStatus = async (leadId: string, currentStatus: string) => {
-    setIsUpdatingLead(leadId);
-    const newStatus = currentStatus === 'Contactado' ? 'Pendente' : 'Contactado';
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ status: newStatus })
-        .eq('id', leadId);
-      
-      if (error) throw error;
-      
-      setMyLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as any } : l));
-    } catch (err: any) {
-      alert("Erro ao atualizar status do lead: " + err.message);
-    } finally {
-      setIsUpdatingLead(null);
-    }
-  };
-
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
     const targetStatus = !currentActive;
-    
     try {
       const { error } = await supabase
         .from('cars')
@@ -108,11 +87,10 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       if (error) throw error;
       
-      // Atualiza o estado local para forçar a re-filtragem imediata do grid
+      // Sincronização imediata no estado local para feedback visual instantâneo
       setMyCars(prev => prev.map(c => c.id === carId ? { ...c, active: targetStatus } : c));
     } catch (err: any) {
-      console.error("Erro visibility:", err);
-      alert(lang === 'pt' ? "Erro ao alterar visibilidade no servidor." : "Server error updating visibility.");
+      alert("Erro ao ocultar/ativar: " + err.message);
     } finally {
       setIsToggling(null);
     }
@@ -120,8 +98,8 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const handleDeleteCar = async (carId: string) => {
     const confirmMsg = lang === 'pt' 
-      ? "🚨 ELIMINAÇÃO PERMANENTE: Deseja apagar este anúncio definitivamente?" 
-      : "🚨 PERMANENT DELETE: Delete this ad permanently?";
+      ? "🚨 ELIMINAÇÃO PERMANENTE: Se este carro tiver pedidos de contacto (leads), eles também serão apagados definitivamente. Deseja continuar?" 
+      : "🚨 PERMANENT DELETE: If this car has leads, they will also be permanently deleted. Continue?";
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -132,13 +110,22 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .delete()
         .eq('id', carId);
 
-      if (error) throw error;
+      if (error) {
+        // Erro de restrição de chave estrangeira (FK)
+        if (error.code === '23503') {
+          alert("NÃO É POSSÍVEL APAGAR: Este veículo tem leads (pedidos de contacto) associados.\n\nSOLUÇÃO: Peça ao administrador para executar o script de 'CASCADE DELETE' no painel central.");
+        } else {
+          throw error;
+        }
+        return;
+      }
       
+      // Sucesso: limpar do estado local
       setMyCars(prev => prev.filter(c => c.id !== carId));
       setMyLeads(prev => prev.filter(l => l.car_id !== carId));
+      
     } catch (err: any) {
-      console.error("Erro fatal ao eliminar:", err);
-      alert(lang === 'pt' ? "Não foi possível eliminar." : "Delete failed.");
+      alert("Erro ao eliminar: " + err.message);
     } finally {
       setIsDeleting(null);
     }
@@ -159,7 +146,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
         <header className="flex flex-col lg:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 gap-6">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg">
@@ -190,7 +176,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
               Leads ({myLeads.length})
             </button>
             <button onClick={() => setActiveTab('ads')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'ads' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'}`}>
-              {lang === 'pt' ? 'Anúncios' : 'Ads'} ({myCars.length})
+              Anúncios ({myCars.length})
             </button>
           </div>
 
@@ -214,34 +200,22 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     <div key={lead.id} className={`bg-white p-8 rounded-[35px] shadow-sm border border-gray-100 transition-all ${lead.status === 'Contactado' ? 'opacity-70 bg-gray-50/50' : ''}`}>
                       <div className="flex flex-col lg:flex-row justify-between gap-6">
                         <div className="flex gap-6 w-full">
-                          <button 
-                            onClick={() => handleUpdateLeadStatus(lead.id, lead.status)}
-                            disabled={isUpdatingLead === lead.id}
-                            className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center border-2 transition-all active:scale-95 ${lead.status === 'Contactado' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-300 border-gray-100 hover:border-blue-400 hover:text-blue-400'}`}
-                            title={lead.status === 'Contactado' ? 'Marcar como Pendente' : 'Marcar como Contactado'}
-                          >
-                            {isUpdatingLead === lead.id ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-check"></i>}
-                          </button>
+                          <div className="w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center border-2 border-blue-50 bg-blue-50 text-blue-600">
+                            <i className="fas fa-paper-plane"></i>
+                          </div>
                           <div className="flex-grow">
                             <div className="flex justify-between items-start">
                               <div>
                                 <h3 className="text-xl font-black text-gray-900">{lead.customer_name}</h3>
-                                <p className="text-sm text-blue-600 font-bold flex items-center gap-2">
-                                  <i className="fas fa-phone-alt text-[10px]"></i>
-                                  {lead.customer_phone}
-                                </p>
+                                <p className="text-sm text-blue-600 font-bold">{lead.customer_phone}</p>
                               </div>
                               <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                                 {lead.status}
                               </span>
                             </div>
-                            <p className="mt-4 text-gray-500 italic bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-sm">
+                            <p className="mt-4 text-gray-500 italic bg-white p-4 rounded-2xl border border-gray-100 text-sm">
                               "{lead.message}"
                             </p>
-                            <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                               <span><i className="far fa-clock mr-1"></i> {new Date(lead.created_at).toLocaleDateString()}</span>
-                               <span><i className="fas fa-car mr-1"></i> {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Genérica'}</span>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -252,61 +226,48 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             ) : (
               <div className="space-y-8">
                 <div className="flex gap-4 border-b border-gray-100">
-                  <button 
-                    onClick={() => setAdsFilter('active')}
-                    className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'active' ? 'text-blue-600' : 'text-gray-400'}`}
-                  >
-                    Ativos ({myCars.filter(c => (c.active ?? true) === true).length})
+                  <button onClick={() => setAdsFilter('active')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'active' ? 'text-blue-600' : 'text-gray-400'}`}>
+                    Ativos ({myCars.filter(c => (c.active ?? true)).length})
                     {adsFilter === 'active' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
                   </button>
-                  <button 
-                    onClick={() => setAdsFilter('hidden')}
-                    className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'hidden' ? 'text-blue-600' : 'text-gray-400'}`}
-                  >
-                    Ocultos ({myCars.filter(c => c.active === false).length})
+                  <button onClick={() => setAdsFilter('hidden')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest transition-all relative ${adsFilter === 'hidden' ? 'text-blue-600' : 'text-gray-400'}`}>
+                    Ocultos ({myCars.filter(c => !(c.active ?? true)).length})
                     {adsFilter === 'hidden' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full"></div>}
                   </button>
                 </div>
 
-                {filteredMyCars.length === 0 ? (
-                  <div className="py-20 text-center bg-white rounded-[40px] border border-dashed border-gray-200">
-                    <i className="fas fa-car-side text-3xl text-gray-100 mb-4 block"></i>
-                    <p className="text-gray-400 font-bold">Nenhuma viatura nesta categoria.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredMyCars.map(car => (
-                      <div key={car.id} className={`bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm transition-all animate-in fade-in zoom-in duration-300 ${!(car.active ?? true) ? 'bg-gray-50/50' : ''}`}>
-                        <div className="relative h-48">
-                          <img src={car.image} className={`w-full h-full object-cover transition-all ${!(car.active ?? true) ? 'grayscale' : ''}`} alt="" />
-                          <div className="absolute top-4 left-4">
-                            <button 
-                              onClick={(e) => { e.preventDefault(); handleToggleActive(car.id, car.active ?? true); }}
-                              disabled={isToggling === car.id}
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
-                            >
-                              {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Ocultar' : 'Ativar')}
-                            </button>
-                          </div>
-                          <div className="absolute top-4 right-4 flex gap-2">
-                            <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
-                            <button 
-                              onClick={() => handleDeleteCar(car.id)} 
-                              disabled={isDeleting === car.id}
-                              className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
-                            >
-                              {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
-                            </button>
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredMyCars.map(car => (
+                    <div key={car.id} className="bg-white rounded-[35px] overflow-hidden border border-gray-100 shadow-sm">
+                      <div className="relative h-48">
+                        <img src={car.image} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute top-4 left-4 flex gap-2">
+                          <button 
+                            onClick={() => handleToggleActive(car.id, car.active ?? true)}
+                            disabled={isToggling === car.id}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${ (car.active ?? true) ? 'bg-green-500 text-white' : 'bg-gray-700 text-white' }`}
+                          >
+                            {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Ocultar' : 'Ativar')}
+                          </button>
                         </div>
-                        <div className="p-6">
-                          <h4 className="font-black text-gray-900">{car.brand} {car.model}</h4>
-                          <p className="text-blue-600 font-black">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
+                        <div className="absolute top-4 right-4 flex gap-2">
+                          <Link to={`/editar-anuncio/${car.id}`} className="w-10 h-10 bg-white/90 rounded-xl flex items-center justify-center text-blue-600 shadow-lg"><i className="fas fa-edit"></i></Link>
+                          <button 
+                            onClick={() => handleDeleteCar(car.id)} 
+                            disabled={isDeleting === car.id}
+                            className="w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600"
+                          >
+                            {isDeleting === car.id ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="p-6">
+                        <h4 className="font-black text-gray-900">{car.brand} {car.model}</h4>
+                        <p className="text-blue-600 font-black">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
