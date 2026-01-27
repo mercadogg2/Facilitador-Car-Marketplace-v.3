@@ -99,12 +99,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     setIsTogglingAd(carId);
     const targetStatus = !currentActive;
     try {
-      // O Admin tem permissão para alterar qualquer viatura se o RLS estiver correto
       const { error } = await supabase.from('cars').update({ active: targetStatus }).eq('id', carId);
       if (error) throw error;
       setAds(prev => prev.map(a => a.id === carId ? { ...a, active: targetStatus } : a));
     } catch (err: any) {
-      alert("Erro ao alterar visibilidade: " + err.message + "\nCertifique-se que executou o script SQL na aba 'Infra'.");
+      alert("Erro ao alterar visibilidade: " + err.message + "\nCertifique-se que o RLS está correto via aba 'Infra'.");
     } finally {
       setIsTogglingAd(null);
     }
@@ -270,32 +269,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 UPDATE public.cars SET active = true WHERE active IS NULL;
 
--- 2. RESET DE POLÍTICAS PARA CARROS (Permitir que Admin e Dono atualizem)
+-- 2. RESET DE POLÍTICAS PARA CARROS (Admin tem poder total)
+DROP POLICY IF EXISTS "Gestão de Anúncios" ON public.cars;
 DROP POLICY IF EXISTS "Dono pode atualizar carro" ON public.cars;
 DROP POLICY IF EXISTS "Admin pode gerir tudo" ON public.cars;
 
+-- Política de UPDATE (Permite ao Dono e ao Admin ocultar/ativar)
 CREATE POLICY "Gestão de Anúncios" 
 ON public.cars 
 FOR UPDATE 
 TO authenticated 
 USING (
   auth.uid() = user_id OR 
-  auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt'
+  (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 )
 WITH CHECK (
   auth.uid() = user_id OR 
-  auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt'
+  (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
 );
 
--- 3. PERMISSÃO DE ELIMINAÇÃO PARA ADMIN
-DROP POLICY IF EXISTS "Dono pode apagar carro" ON public.cars;
+-- Política de DELETE (Permite ao Dono e ao Admin apagar)
+DROP POLICY IF EXISTS "Eliminação de Anúncios" ON public.cars;
 CREATE POLICY "Eliminação de Anúncios"
 ON public.cars
 FOR DELETE
 TO authenticated
 USING (
   auth.uid() = user_id OR 
-  auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt'
+  (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt')
+);
+
+-- Política de SELECT (Público vê apenas Ativos, Admin vê tudo)
+DROP POLICY IF EXISTS "Public can see cars" ON public.cars;
+CREATE POLICY "Visualização de Anúncios"
+ON public.cars
+FOR SELECT
+USING (
+  active = true OR 
+  (auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt') OR
+  auth.uid() = user_id
 );
 
 NOTIFY pgrst, 'reload schema';`}
@@ -307,7 +319,6 @@ NOTIFY pgrst, 'reload schema';`}
 
         {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-             {/* Conteúdo de Leads permanece o mesmo */}
              <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
               <h3 className="text-2xl font-black">Histórico de Leads</h3>
               <div className="text-xs font-bold text-slate-400">Total: {leads.length} contactos</div>
@@ -365,7 +376,6 @@ NOTIFY pgrst, 'reload schema';`}
           </div>
         )}
 
-        {/* Gestão de Stands (mesma lógica anterior) */}
         {activeTab === 'stands' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
              <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">

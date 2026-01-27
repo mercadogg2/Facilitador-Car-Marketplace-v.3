@@ -22,13 +22,12 @@ const VanityCarDetail: React.FC<VanityCarDetailProps> = ({ lang, onToggleFavorit
           .from('cars')
           .select('id')
           .eq('subdomain', slug)
+          .eq('active', true) // FILTRO CRÍTICO
           .single();
         
         if (data && !error) {
-          // Redireciona para o detalhe oficial sem recarregar a página
           navigate(`/veiculos/${data.id}`, { replace: true });
         } else {
-          // Se não encontrar, manda para a listagem geral
           navigate('/veiculos');
         }
       } catch (err) {

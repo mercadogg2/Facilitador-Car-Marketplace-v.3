@@ -31,10 +31,12 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
       setLoading(true);
       window.scrollTo(0, 0);
       
+      // FILTRO CRÍTICO: Só permite visualizar se estiver ativo
       const { data, error } = await supabase
         .from('cars')
         .select('*')
         .eq('id', id)
+        .eq('active', true)
         .single();
       
       if (!error && data) {
@@ -45,6 +47,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
           .from('cars')
           .select('*')
           .eq('category', data.category)
+          .eq('active', true)
           .neq('id', data.id)
           .limit(3);
         
@@ -64,7 +67,18 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
     );
   }
 
-  if (!car) return <div className="p-20 text-center">Viatura não encontrada.</div>;
+  if (!car) return (
+    <div className="p-20 text-center flex flex-col items-center gap-6">
+      <div className="w-20 h-20 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-3xl">
+        <i className="fas fa-eye-slash"></i>
+      </div>
+      <div>
+        <h2 className="text-2xl font-black text-gray-900">Viatura Indisponível</h2>
+        <p className="text-gray-500 mt-2">Este anúncio foi removido ou está temporariamente oculto.</p>
+      </div>
+      <Link to="/veiculos" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">{tc.back} aos Veículos</Link>
+    </div>
+  );
 
   const isFavorite = favorites.includes(car.id);
   const gallery = car.images && car.images.length > 0 ? car.images : [car.image];
