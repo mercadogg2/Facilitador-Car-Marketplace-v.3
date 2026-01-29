@@ -13,6 +13,10 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
   const t = TRANSLATIONS[lang].blog;
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -34,6 +38,36 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
     };
     fetchPosts();
   }, []);
+
+  const handleNewsletterSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail) return;
+
+    setIsSubscribing(true);
+    setSubscribeError(null);
+
+    try {
+      // Inserimos na tabela de leads com o identificador NEWSLETTER
+      const { error } = await supabase.from('leads').insert([{
+        customer_name: 'Subscritor Blog',
+        customer_email: newsletterEmail.trim().toLowerCase(),
+        customer_phone: 'N/A',
+        message: 'Subscrição via Newsletter do Blog',
+        stand_name: 'NEWSLETTER',
+        status: 'Pendente'
+      }]);
+
+      if (error) throw error;
+
+      setSubscribeSuccess(true);
+      setNewsletterEmail('');
+      setTimeout(() => setSubscribeSuccess(false), 5000);
+    } catch (err: any) {
+      setSubscribeError(lang === 'pt' ? 'Erro ao subscrever. Tente novamente.' : 'Error subscribing. Try again.');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
@@ -97,18 +131,38 @@ const Blog: React.FC<BlogProps> = ({ lang }) => {
 
       <section className="mt-24 bg-gray-900 rounded-[40px] p-12 text-center relative overflow-hidden">
         <div className="relative z-10 max-w-2xl mx-auto">
-          <h3 className="text-3xl font-bold text-white mb-4">{t.newsletterTitle}</h3>
-          <p className="text-gray-400 mb-8">{t.newsletterDesc}</p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <input 
-              type="email" 
-              placeholder={t.placeholder}
-              className="flex-grow bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20">
-              {t.subscribe}
-            </button>
-          </div>
+          {subscribeSuccess ? (
+            <div className="animate-in zoom-in duration-500">
+              <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+                <i className="fas fa-check"></i>
+              </div>
+              <h3 className="text-3xl font-bold text-white mb-2">{lang === 'pt' ? 'Obrigado!' : 'Thank you!'}</h3>
+              <p className="text-gray-400">{lang === 'pt' ? 'Agora faz parte da nossa comunidade.' : 'You are now part of our community.'}</p>
+            </div>
+          ) : (
+            <>
+              <h3 className="text-3xl font-bold text-white mb-4">{t.newsletterTitle}</h3>
+              <p className="text-gray-400 mb-8">{t.newsletterDesc}</p>
+              <form onSubmit={handleNewsletterSubscribe} className="flex flex-col sm:flex-row gap-4">
+                <input 
+                  required
+                  type="email" 
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  placeholder={t.placeholder}
+                  className="flex-grow bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-600"
+                />
+                <button 
+                  type="submit"
+                  disabled={isSubscribing}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-black px-10 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50"
+                >
+                  {isSubscribing ? <i className="fas fa-circle-notch animate-spin"></i> : t.subscribe}
+                </button>
+              </form>
+              {subscribeError && <p className="text-red-400 text-xs font-bold mt-4">{subscribeError}</p>}
+            </>
+          )}
         </div>
       </section>
     </div>

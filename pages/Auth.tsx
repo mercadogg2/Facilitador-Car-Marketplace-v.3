@@ -174,6 +174,14 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
                 <input required type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
               </div>
 
+              {mode === 'register' && (
+                <p className="text-[10px] text-gray-400 leading-relaxed text-justify px-1">
+                  Ao clicar no botão 'Criar conta', aceito os <Link to="/termos" className="text-blue-500 hover:underline">Termos e Condições</Link> do FACILITADOR CAR.
+                  Reconheço que o FACILITADOR CAR utiliza a minha informação pessoal de acordo com a <Link to="/privacidade" className="text-blue-500 hover:underline">Política de Privacidade</Link> e com a
+                  <Link to="/cookies" className="text-blue-500 hover:underline">Política de Cookies e Tecnologias Semelhantes</Link>. O FACILITADOR CAR utiliza sistemas automatizados e parceiros para analisar o meu uso dos serviços e facultar funcionalidades de produto relevantes, conteúdo, publicidade visada e baseada nos meus interesses, bem como protecção contra spam, malware e utilização não autorizada.
+                </p>
+              )}
+
               <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-blue-700 transition-all">
                 {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : (mode === 'login' ? 'Entrar' : 'Criar Conta')}
               </button>

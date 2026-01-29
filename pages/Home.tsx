@@ -28,7 +28,6 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        // Busca até 8 anúncios que são marcados como destaques (is_featured = true)
         const { data, error } = await supabase
           .from('cars')
           .select('*')
@@ -37,10 +36,9 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
           .order('created_at', { ascending: false })
           .limit(8);
         
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
           setFeaturedCars(data);
         } else {
-          // Fallback caso não haja destaques marcados
           const { data: fallbackData } = await supabase
             .from('cars')
             .select('*')
@@ -65,8 +63,8 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
             .from('cars')
             .select('*')
             .eq('active', true)
-            .or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`)
-            .limit(5);
+            .or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,stand_name.ilike.%${searchQuery}%`)
+            .limit(6);
           
           if (!error && data) {
             setSuggestions(data);
@@ -97,38 +95,44 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    navigate(`/veiculos?q=${searchQuery}`);
+    if (searchQuery.trim()) {
+      navigate(`/veiculos?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
+
+  const handleQuickFilter = (category: string) => {
+    navigate(`/veiculos?category=${encodeURIComponent(category)}`);
   };
 
   return (
     <div className="space-y-16">
-      <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1920" 
             alt="Hero Background"
-            className="w-full h-full object-cover brightness-[0.4]"
+            className="w-full h-full object-cover brightness-[0.3]"
           />
         </div>
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto w-full">
+          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight animate-in fade-in slide-in-from-bottom-4 duration-700">
             {t.hero}
           </h1>
-          <p className="text-xl text-gray-200 mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+          <p className="text-xl text-gray-200 mb-12 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100 font-medium">
             {t.subHero}
           </p>
           
-          <div ref={searchRef} className="relative max-w-3xl mx-auto z-50">
+          <div ref={searchRef} className="relative max-w-3xl mx-auto z-50 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
             <form 
               onSubmit={handleSearchSubmit}
-              className="bg-white p-2 rounded-2xl shadow-2xl flex flex-col md:flex-row gap-2 transition-all focus-within:ring-4 focus-within:ring-blue-500/20"
+              className="bg-white/95 backdrop-blur-xl p-3 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col md:flex-row gap-2 transition-all ring-1 ring-white/20"
             >
-              <div className="flex-grow flex items-center px-4 py-3 md:py-0">
-                <i className={`fas ${isSearching ? 'fa-circle-notch animate-spin' : 'fa-search'} text-gray-400 mr-3`}></i>
+              <div className="flex-grow flex items-center px-6 py-4 md:py-0">
+                <i className={`fas ${isSearching ? 'fa-circle-notch animate-spin' : 'fa-search'} text-blue-600 mr-4 text-xl`}></i>
                 <input 
                   type="text" 
                   placeholder={t.searchPlaceholder}
-                  className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-500 font-medium"
+                  className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 font-bold text-lg"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => searchQuery.length > 1 && setShowSuggestions(true)}
@@ -136,68 +140,75 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
               </div>
               <button 
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg shadow-blue-200 flex items-center justify-center"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-5 rounded-[20px] font-black transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center text-lg active:scale-95"
               >
                 {tc.search}
               </button>
             </form>
 
             {showSuggestions && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-0 right-0 mt-4 bg-white rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 {suggestions.length > 0 ? (
-                  <div className="py-2">
+                  <div className="py-4">
+                    <div className="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50 mb-2">Sugestões em Destaque</div>
                     {suggestions.map(car => (
                       <Link 
                         key={car.id} 
                         to={`/veiculos/${car.id}`}
-                        className="flex items-center px-6 py-4 hover:bg-blue-50 transition-colors group"
+                        className="flex items-center px-6 py-4 hover:bg-blue-50 transition-all group"
                       >
-                        <div className="w-12 h-12 rounded-lg overflow-hidden mr-4 border border-gray-100">
-                          <img src={car.image} alt={car.brand} className="w-full h-full object-cover" />
+                        <div className="w-16 h-12 rounded-xl overflow-hidden mr-5 border border-gray-100 shrink-0">
+                          <img src={car.image} alt={car.brand} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                         </div>
-                        <div className="text-left">
-                          <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <div className="text-left flex-grow">
+                          <p className="font-black text-gray-900 group-hover:text-blue-600 transition-colors">
                             {car.brand} {car.model}
                           </p>
-                          <p className="text-xs text-gray-500">{car.year} • {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(car.price)}</p>
+                          <p className="text-xs text-gray-400 font-bold">{car.year} • {car.stand_name}</p>
                         </div>
-                        <i className="fas fa-chevron-right ml-auto text-gray-300 text-xs group-hover:text-blue-600 group-hover:translate-x-1 transition-all"></i>
+                        <div className="text-right">
+                           <p className="text-blue-600 font-black text-sm">{(car.price || 0).toLocaleString()}€</p>
+                           <p className="text-[10px] text-gray-300 font-black uppercase tracking-widest">{car.category}</p>
+                        </div>
                       </Link>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-gray-500 font-medium">
-                    <i className="fas fa-search mb-2 block text-xl opacity-20"></i>
-                    {lang === 'pt' ? 'Nenhum resultado encontrado' : 'No results found'}
+                  <div className="p-12 text-center text-gray-400 font-bold">
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <i className="fas fa-search-minus text-2xl opacity-20"></i>
+                    </div>
+                    {lang === 'pt' ? 'Nenhuma viatura encontrada' : 'No vehicles found'}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          <div className="mt-8 flex justify-center space-x-8 text-white/80 text-sm">
-            <div className="flex items-center">
-              <i className="fas fa-shield-alt text-blue-400 mr-2"></i>
-              <span>{tc.verified}</span>
-            </div>
-            <div className="flex items-center">
-              <i className="fas fa-check-double text-blue-400 mr-2"></i>
-              <span>{lang === 'pt' ? 'Compra Segura' : 'Safe Purchase'}</span>
-            </div>
+          <div className="mt-12 flex flex-wrap justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+            {t.quickFilters?.map((filter, idx) => (
+              <button 
+                key={idx}
+                onClick={() => handleQuickFilter(filter.val)}
+                className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-white hover:text-blue-600 hover:border-white transition-all flex items-center gap-3 active:scale-95"
+              >
+                <i className={`fas ${filter.icon} text-sm`}></i>
+                {filter.label}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
       {featuredCars.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-end mb-10">
+          <div className="flex justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">{t.featured}</h2>
-              <p className="text-gray-500 mt-2">{lang === 'pt' ? 'Escolhas exclusivas dos nossos stands certificados.' : 'Exclusive picks from our certified dealerships.'}</p>
+              <h2 className="text-4xl font-black text-gray-900 tracking-tight">{t.featured}</h2>
+              <p className="text-gray-500 mt-2 font-medium">{lang === 'pt' ? 'As melhores oportunidades dos nossos stands certificados.' : 'Top deals from our certified dealers.'}</p>
             </div>
-            <Link to="/veiculos" className="text-blue-600 font-bold hover:text-blue-700 flex items-center group">
+            <Link to="/veiculos" className="bg-gray-100 text-gray-900 px-8 py-3 rounded-2xl font-black text-sm hover:bg-blue-600 hover:text-white transition-all active:scale-95">
               {t.viewAll}
-              <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
             </Link>
           </div>
           
@@ -215,38 +226,6 @@ const Home: React.FC<HomeProps> = ({ lang, onToggleFavorite, favorites }) => {
           </div>
         </section>
       )}
-
-      <section className="bg-white py-20 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div>
-              <span className="text-blue-600 font-bold uppercase tracking-widest text-sm">{t.whyUs}</span>
-              <h2 className="text-4xl font-bold text-gray-900 mt-4 mb-6 leading-tight">{t.credibility}</h2>
-              <p className="text-lg text-gray-600 mb-8">{t.whyUsDesc}</p>
-              <ul className="space-y-4">
-                {t.benefits.map((item, idx) => (
-                  <li key={idx} className="flex items-start">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mr-4 shrink-0">
-                      <i className={`fas ${['fa-certificate', 'fa-star', 'fa-comments-dollar'][idx]}`}></i>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900">{item.title}</h4>
-                      <p className="text-gray-500 text-sm">{item.desc}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800" 
-                alt="Happy customer"
-                className="rounded-3xl shadow-2xl relative z-10"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
 
       {selectedCar && <LeadForm car={selectedCar} lang={lang} onClose={() => setSelectedCar(null)} />}
     </div>

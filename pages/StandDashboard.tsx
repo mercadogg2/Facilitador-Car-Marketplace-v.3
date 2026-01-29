@@ -65,7 +65,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         .eq('id', carId);
 
       if (error) {
-        alert(`Não foi possível alterar: ${error.message} (Código: ${error.code})`);
+        alert(`Não foi possível alterar: ${error.message}`);
         return;
       }
       
@@ -78,25 +78,26 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   };
 
   const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("ELIMINAR DEFINITIVAMENTE? Esta viatura e todos os seus pedidos de contacto serão apagados.")) return;
+    if (!window.confirm("ELIMINAR DEFINITIVAMENTE?\nA viatura e todos os contactos serão apagados.")) return;
 
     setIsDeleting(carId);
     try {
+      // 1. LIMPEZA MANUAL DE LEADS (Elimina conflitos de chave estrangeira)
+      await supabase.from('leads').delete().eq('car_id', carId);
+
+      // 2. ELIMINAÇÃO DO CARRO
       const { error } = await supabase
         .from('cars')
         .delete()
         .eq('id', carId);
 
-      if (error) {
-        console.error("Delete detailed error:", error);
-        alert(`ERRO AO APAGAR (${error.code}): ${error.message}\n\nSe o erro for '23503', contacte o administrador para ativar o CASCADE DELETE.`);
-        return;
-      }
+      if (error) throw error;
       
       setMyCars(prev => prev.filter(c => c.id !== carId));
       setMyLeads(prev => prev.filter(l => l.car_id !== carId));
+      alert("Viatura removida com sucesso.");
     } catch (err: any) {
-      alert("Erro ao processar remoção: " + err.message);
+      alert("Erro ao remover: " + err.message);
     } finally {
       setIsDeleting(null);
     }
@@ -108,7 +109,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
@@ -174,17 +175,20 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       <div className="p-8">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-black text-slate-900 text-lg truncate mr-4">{car.brand} {car.model}</h4>
-                          <span className="font-black text-blue-600">{formatCurrency(car.price, lang)}</span>
+                          <span className="font-black text-blue-600">{(car.price || 0).toLocaleString()}€</span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">{car.year} • {car.mileage.toLocaleString()} KM</p>
                       </div>
                     </div>
                   ))}
+                  {filteredMyCars.length === 0 && (
+                    <div className="col-span-full py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">Sem viaturas nesta categoria</div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
-                 {myLeads.length === 0 ? <div className="bg-white p-24 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-gray-400 font-bold">Sem leads no momento.</div> : 
+                 {myLeads.length === 0 ? <div className="bg-white p-24 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-gray-400 font-bold">Sem contactos no momento.</div> : 
                    myLeads.map(lead => (
                     <div key={lead.id} className={`bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all ${lead.status === 'Contactado' ? 'bg-slate-50/50 grayscale opacity-60' : ''}`}>
                       <div className="flex flex-col lg:flex-row justify-between gap-8">
@@ -217,15 +221,13 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
         ) : (
           <div className="bg-amber-50 p-24 rounded-[60px] text-center border-4 border-dashed border-amber-100">
              <i className="fas fa-user-clock text-4xl text-amber-600 mb-6"></i>
-             <h2 className="text-3xl font-black text-amber-900 mb-4">Verificação em Curso</h2>
-             <p className="text-amber-700 max-w-md mx-auto">A sua conta está a ser analisada. Poderá gerir o stock assim que for aprovado.</p>
+             <h2 className="text-3xl font-black text-amber-900 mb-4">Em Verificação</h2>
+             <p className="text-amber-700 max-w-md mx-auto">A sua conta de stand profissional está a ser analisada.</p>
           </div>
         )}
       </div>
     </div>
   );
 };
-
-const formatCurrency = (amount: number, lang: string) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
 
 export default StandDashboard;

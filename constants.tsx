@@ -5,7 +5,7 @@ export const TRANSLATIONS = {
     home: {
       hero: 'O Facilitador Car simplifica a sua compra.',
       subHero: 'Compre com segurança em stands verificados e com o apoio de quem percebe do assunto. De Portugal aos portugueses.',
-      searchPlaceholder: 'Marca, modelo ou ano...',
+      searchPlaceholder: 'Qual é o seu carro de sonho?',
       featured: 'Veículos em Destaque',
       viewAll: 'Ver Todos',
       whyUs: 'Porquê nós?',
@@ -15,6 +15,12 @@ export const TRANSLATIONS = {
         { title: 'Certificação de Stands', desc: 'Apenas lojistas com histórico impecável.' },
         { title: 'Apoio de Influenciadores', desc: 'Parceiros que testam e aprovam os veículos.' },
         { title: 'Negociação Transparente', desc: 'Canal direto via WhatsApp para maior agilidade.' }
+      ],
+      quickFilters: [
+        { label: 'SUVs', icon: 'fa-truck-monster', val: 'SUV' },
+        { label: 'Sedans', icon: 'fa-car-side', val: 'Sedan' },
+        { label: 'Elétricos', icon: 'fa-bolt', val: 'Elétrico' },
+        { label: 'Desportivos', icon: 'fa-tachometer-alt', val: 'Coupe' }
       ]
     },
     support: {
@@ -132,6 +138,10 @@ export const TRANSLATIONS = {
       found: 'Anúncios encontrados',
       sortBy: 'Ordenar por',
       recent: 'Mais recentes',
+      priceAsc: 'Preço: Menor para Maior',
+      priceDesc: 'Preço: Maior para Menor',
+      yearDesc: 'Ano: Mais Recente',
+      kmAsc: 'KM: Menor para Maior',
       back: 'Voltar',
       share: 'Partilhar',
       delete: 'Remover',
@@ -162,7 +172,7 @@ export const TRANSLATIONS = {
     home: {
       hero: 'Facilitador Car simplifies your purchase.',
       subHero: 'Buy safely in verified dealerships with expert support.',
-      searchPlaceholder: 'Make, model or year...',
+      searchPlaceholder: 'What is your dream car?',
       featured: 'Featured Vehicles',
       viewAll: 'View All',
       whyUs: 'Why us?',
@@ -172,6 +182,12 @@ export const TRANSLATIONS = {
         { title: 'Dealership Certification', desc: 'Only top-tier retailers.' },
         { title: 'Expert Support', desc: 'Approved and tested vehicles.' },
         { title: 'WhatsApp Direct', desc: 'Agile communication channel.' }
+      ],
+      quickFilters: [
+        { label: 'SUVs', icon: 'fa-truck-monster', val: 'SUV' },
+        { label: 'Sedans', icon: 'fa-car-side', val: 'Sedan' },
+        { label: 'Electric', icon: 'fa-bolt', val: 'Elétrico' },
+        { label: 'Coupes', icon: 'fa-tachometer-alt', val: 'Coupe' }
       ]
     },
     support: {
@@ -289,6 +305,10 @@ export const TRANSLATIONS = {
       found: 'Ads found',
       sortBy: 'Sort by',
       recent: 'Recent',
+      priceAsc: 'Price: Low to High',
+      priceDesc: 'Price: High to Low',
+      yearDesc: 'Year: Newest',
+      kmAsc: 'KM: Lowest',
       back: 'Back',
       share: 'Share',
       delete: 'Delete',
