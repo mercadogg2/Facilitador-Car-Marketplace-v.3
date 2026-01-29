@@ -5,6 +5,7 @@ import { Language, Car } from '../types';
 import { TRANSLATIONS } from '../constants';
 import CarCard from '../components/CarCard';
 import LeadForm from '../components/LeadForm';
+import HelpCard from '../components/HelpCard';
 import { supabase } from '../lib/supabase';
 
 type SortOption = 'recent' | 'price_asc' | 'price_desc' | 'year_desc' | 'km_asc';
@@ -55,7 +56,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
       setLoading(true);
       let query = supabase.from('cars').select('*').eq('active', true);
 
-      // Aplicação de filtros na query
       if (searchQuery) query = query.or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       if (filters.brand) query = query.eq('brand', filters.brand);
       if (filters.category) query = query.eq('category', filters.category);
@@ -63,7 +63,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
       if (filters.minYear > 1980) query = query.gte('year', filters.minYear);
       if (filters.maxKM < 500000) query = query.lte('mileage', filters.maxKM);
 
-      // Ordenação
       switch (sortBy) {
         case 'price_asc': query = query.order('price', { ascending: true }); break;
         case 'price_desc': query = query.order('price', { ascending: false }); break;
@@ -81,7 +80,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
     return () => clearTimeout(timer);
   }, [searchQuery, filters, sortBy]);
 
-  // Sincronizar URL com filtros
   useEffect(() => {
     const params: any = {};
     if (searchQuery) params.q = searchQuery;
@@ -115,7 +113,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
         </div>
 
         <div className="space-y-8">
-          {/* Texto de Busca */}
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">{t.search}</label>
             <div className="relative">
@@ -130,7 +127,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
             </div>
           </div>
 
-          {/* Marcas */}
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">{t.brand}</label>
             <select 
@@ -143,7 +139,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
             </select>
           </div>
 
-          {/* Preço Máximo */}
           <div>
             <div className="flex justify-between items-center mb-3 ml-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.maxPrice}</label>
@@ -157,7 +152,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
             />
           </div>
 
-          {/* Ano Mínimo */}
           <div>
             <div className="flex justify-between items-center mb-3 ml-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ano Mínimo</label>
@@ -171,21 +165,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
             />
           </div>
 
-          {/* Quilometragem Máxima */}
-          <div>
-             <div className="flex justify-between items-center mb-3 ml-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KM Máximos</label>
-              <span className="text-xs font-black text-blue-600">{filters.maxKM >= 500000 ? 'Ilimitado' : `${filters.maxKM.toLocaleString()} KM`}</span>
-            </div>
-            <input 
-              type="range" min="10000" max="300000" step="10000"
-              className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              value={filters.maxKM > 300000 ? 300000 : filters.maxKM}
-              onChange={(e) => setFilters({...filters, maxKM: parseInt(e.target.value)})}
-            />
-          </div>
-
-          {/* Categorias - Estilo Grid */}
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 ml-1">{t.category}</label>
             <div className="grid grid-cols-2 gap-2">
@@ -209,17 +188,14 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
         </div>
       </div>
 
-      <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-2xl shadow-blue-200 hidden lg:block">
-        <h4 className="font-black text-lg mb-2">Precisa de ajuda?</h4>
-        <p className="text-blue-100 text-xs font-medium mb-6">Fale com os nossos especialistas para encontrar o carro ideal.</p>
-        <button className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform">Contactar Suporte</button>
+      <div className="hidden lg:block">
+        <HelpCard />
       </div>
     </div>
   );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Top Header & Sort */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6 bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
         <div>
            <h2 className="text-2xl font-black text-gray-900">
@@ -229,7 +205,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
         </div>
 
         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-           {/* Ordenação */}
            <div className="flex items-center gap-3 bg-gray-50 px-6 py-3 rounded-2xl border border-gray-100 flex-grow md:flex-grow-0">
               <i className="fas fa-sort-amount-down text-blue-600 text-sm"></i>
               <select 
@@ -245,7 +220,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
               </select>
            </div>
 
-           {/* Botão Filtros Mobile */}
            <button 
              onClick={() => setIsMobileFiltersOpen(true)}
              className="lg:hidden flex items-center gap-3 bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-xl shadow-blue-100 active:scale-95"
@@ -257,12 +231,10 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
       </div>
 
       <div className="flex flex-col lg:flex-row gap-12">
-        {/* Sidebar Desktop */}
         <aside className="hidden lg:block w-80 shrink-0">
           <FilterSidebar />
         </aside>
 
-        {/* Listagem de Veículos */}
         <div className="flex-grow">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -301,7 +273,6 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
         </div>
       </div>
 
-      {/* Modal de Filtros Mobile */}
       {isMobileFiltersOpen && (
         <div className="fixed inset-0 z-[2000] lg:hidden animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setIsMobileFiltersOpen(false)}></div>
