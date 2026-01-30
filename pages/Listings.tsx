@@ -10,6 +10,9 @@ import { supabase } from '../lib/supabase';
 
 type SortOption = 'recent' | 'price_asc' | 'price_desc' | 'year_desc' | 'km_asc';
 
+// Lista fixa de categorias para garantir que todas apareçam no filtro
+const VEHICLE_CATEGORIES = ['SUV', 'Sedan', 'Coupe', 'Hatchback', 'Utilitário'] as const;
+
 interface ListingsProps {
   lang: Language;
   onToggleFavorite: (id: string) => void;
@@ -38,14 +41,12 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
   });
 
   const [brands, setBrands] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchMetadata = async () => {
-      const { data } = await supabase.from('cars').select('brand, category').eq('active', true);
+      const { data } = await supabase.from('cars').select('brand').eq('active', true);
       if (data) {
         setBrands(Array.from(new Set(data.map(c => c.brand).filter(Boolean))));
-        setCategories(Array.from(new Set(data.map(c => c.category).filter(Boolean))));
       }
     };
     fetchMetadata();
@@ -178,7 +179,7 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
                >
                  Todas
                </button>
-               {categories.map(cat => (
+               {VEHICLE_CATEGORIES.map(cat => (
                  <button 
                    key={cat}
                    onClick={() => setFilters({...filters, category: cat})}

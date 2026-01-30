@@ -502,7 +502,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                              {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Removida'}
                            </p>
                            {lead.cars?.reference_code && (
-                             <span className="text-[9px] font-black text-blue-600 uppercase mt-0.5">REF: {lead.cars.reference_code}</span>
+                             <span className="text-[9px] font-black text-blue-600 uppercase mt-0.5">SKU: {lead.cars.reference_code}</span>
                            )}
                         </div>
                       </td>

@@ -63,8 +63,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     price: '',
     location: '',
     description: '',
-    subdomain: '',
-    reference_code: '' // Novo campo
+    subdomain: ''
   });
 
   useEffect(() => {
@@ -116,6 +115,12 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     });
   };
 
+  const generateSKU = (brand: string) => {
+    const prefix = brand.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
+    const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+    return `FC-${prefix}-${random}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (images.length === 0) {
@@ -148,7 +153,7 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
         user_id: user.id,
         verified: false,
         active: true,
-        reference_code: formData.reference_code || `REF-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+        reference_code: generateSKU(formData.brand)
       };
 
       const { error: insertError } = await supabase.from('cars').insert([carData]);
@@ -200,16 +205,10 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
 
           {/* Dados Principais */}
           <section className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-gray-900 flex items-center">
-                <i className="fas fa-info-circle mr-3 text-blue-600"></i>
-                Informações Gerais
-              </h3>
-              <div className="w-1/3">
-                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Código de Referência (Opcional)</label>
-                 <input name="reference_code" value={formData.reference_code} onChange={handleChange} placeholder="Ex: FC-1234" className="w-full px-5 py-3 rounded-xl bg-blue-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-black text-xs uppercase" />
-              </div>
-            </div>
+            <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center">
+              <i className="fas fa-info-circle mr-3 text-blue-600"></i>
+              Informações Gerais
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Marca</label>
