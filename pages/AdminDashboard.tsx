@@ -92,11 +92,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
   const handleUpdateUserStatus = async (userId: string, newStatus: ProfileStatus) => {
     try {
+      setRefreshing(true);
       const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
       if (error) throw error;
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } catch (err: any) {
       alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -111,55 +114,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       alert("Viatura removida.");
     } catch (err: any) {
       alert(`Falha crítica: ${err.message}`);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // CLEANUP ACTIONS (Danger Zone)
-  const handleWipeAllStock = async () => {
-    const confirmText = lang === 'pt' 
-      ? "🚨 AÇÃO IRREVERSÍVEL!\nDeseja eliminar TODOS os carros e TODAS as leads da plataforma?" 
-      : "🚨 IRREVERSIBLE ACTION!\nDo you want to delete ALL cars and ALL leads from the platform?";
-    
-    if (!window.confirm(confirmText)) return;
-    
-    setRefreshing(true);
-    try {
-      await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      const { error } = await supabase.from('cars').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-      setAds([]);
-      setLeads([]);
-      alert(lang === 'pt' ? "Todo o Stock e Leads foram removidos permanentemente." : "All Stock and Leads were permanently removed.");
-    } catch (err: any) {
-      alert("Erro na limpeza de stock: " + err.message);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleWipeAllStands = async () => {
-    const confirmText = lang === 'pt' 
-      ? "🚨 PERIGO!\nIsto removerá DEFINITIVAMENTE todos os Stands e Clientes registados. Apenas a conta Admin será mantida. Continuar?" 
-      : "🚨 DANGER!\nThis will PERMANENTLY remove all registered Dealers and Clients. Only the Admin account will be kept. Continue?";
-
-    if (!window.confirm(confirmText)) return;
-
-    setRefreshing(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .neq('role', UserRole.ADMIN)
-        .neq('email', 'admin@facilitadorcar.pt');
-
-      if (error) throw error;
-
-      setUsers(prev => prev.filter(u => u.role === UserRole.ADMIN));
-      alert(lang === 'pt' ? "Todos os stands foram eliminados definitivamente." : "All dealers were permanently deleted.");
-    } catch (err: any) {
-      alert("Erro na remoção de perfis: " + err.message);
     } finally {
       setRefreshing(false);
     }
@@ -181,18 +135,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
 
     setRefreshing(true);
     try {
-      // 1. Leads
       await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      // 2. Carros
       await supabase.from('cars').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      // 3. Perfis (exceto admin)
       await supabase.from('profiles').delete().neq('role', UserRole.ADMIN).neq('email', 'admin@facilitadorcar.pt');
 
       setAds([]);
       setLeads([]);
       setUsers(prev => prev.filter(u => u.role === UserRole.ADMIN));
       
-      alert(lang === 'pt' ? "A plataforma foi completamente limpa. Todos os stands e viaturas foram removidos." : "Platform completely purged. All dealers and vehicles removed.");
+      alert(lang === 'pt' ? "A plataforma foi completamente limpa." : "Platform completely purged.");
     } catch (err: any) {
       alert("Erro crítico na purga: " + err.message);
     } finally {
@@ -252,23 +203,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
       alert("Erro ao eliminar: " + err.message);
     }
   };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && editingPost) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setEditingPost({ ...editingPost, image: compressed });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const filteredAds = useMemo(() => 
-    ads.filter(a => (a.brand || '').toLowerCase().includes(adSearch.toLowerCase()) || (a.model || '').toLowerCase().includes(adSearch.toLowerCase())), 
-    [ads, adSearch]
-  );
 
   const filteredStands = useMemo(() => 
     users.filter(u => u.role === UserRole.STAND && (u.stand_name || '').toLowerCase().includes(standSearch.toLowerCase())),
@@ -338,52 +272,98 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {/* Tab Blog */}
-        {activeTab === 'blog' && (
+        {/* TAB STANDS - APROVAÇÃO E GESTÃO */}
+        {activeTab === 'stands' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
               <div>
-                <h3 className="text-2xl font-black text-slate-900">Gestão de Conteúdos</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Blog Facilitador Car</p>
+                <h3 className="text-2xl font-black text-slate-900">Gestão de Parceiros</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Aprovação de novos Stands</p>
               </div>
-              <button 
-                onClick={() => handleOpenBlogModal()}
-                className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-2"
-              >
-                <i className="fas fa-plus"></i> Novo Artigo
-              </button>
+              <div className="relative">
+                <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar stand..." 
+                  className="pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
+                  value={standSearch}
+                  onChange={(e) => setStandSearch(e.target.value)}
+                />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
                   <tr>
-                    <th className="px-8 py-5">Capa</th>
-                    <th className="px-8 py-5">Título</th>
-                    <th className="px-8 py-5">Autor</th>
-                    <th className="px-8 py-5">Data</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
+                    <th className="px-8 py-5">Stand / Responsável</th>
+                    <th className="px-8 py-5">Contacto</th>
+                    <th className="px-8 py-5">Estado</th>
+                    <th className="px-8 py-5">Data Registo</th>
+                    <th className="px-8 py-5 text-right">Moderação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {posts.map(post => (
-                    <tr key={post.id} className="hover:bg-slate-50/50">
+                  {filteredStands.map(user => (
+                    <tr key={user.id} className="hover:bg-slate-50/50">
                       <td className="px-8 py-6">
-                        <div className="w-20 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                          <img src={post.image} className="w-full h-full object-cover" alt="" />
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-indigo-600 font-black overflow-hidden border border-slate-200">
+                              {user.profile_image ? <img src={user.profile_image} className="w-full h-full object-cover" alt="" /> : (user.stand_name?.[0] || 'S')}
+                           </div>
+                           <div>
+                              <p className="font-black text-slate-900">{user.stand_name || 'Particular'}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{user.full_name}</p>
+                           </div>
                         </div>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="font-black text-slate-900 line-clamp-1">{post.title}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{post.reading_time}</p>
+                        <p className="text-sm font-bold text-slate-600">{user.email}</p>
+                        <p className="text-[10px] text-indigo-600 font-black">{user.phone || 'Sem telemóvel'}</p>
                       </td>
-                      <td className="px-8 py-6 text-sm font-bold text-slate-600">{post.author}</td>
-                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">{new Date(post.date).toLocaleDateString()}</td>
-                      <td className="px-8 py-6 text-right space-x-2">
-                         <button onClick={() => handleOpenBlogModal(post)} className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"><i className="fas fa-edit"></i></button>
-                         <button onClick={() => handleDeletePost(post.id)} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash"></i></button>
+                      <td className="px-8 py-6">
+                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          user.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                          user.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                          'bg-amber-100 text-amber-700 animate-pulse'
+                        }`}>
+                          {user.status === 'pending' ? 'Pendente' : user.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleUpdateUserStatus(user.id, 'approved')}
+                            title="Aprovar"
+                            className="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all"
+                          >
+                            <i className="fas fa-check"></i>
+                          </button>
+                          <button 
+                            onClick={() => handleUpdateUserStatus(user.id, 'pending')}
+                            title="Colocar Pendente"
+                            className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all"
+                          >
+                            <i className="fas fa-clock"></i>
+                          </button>
+                          <button 
+                            onClick={() => handleUpdateUserStatus(user.id, 'rejected')}
+                            title="Rejeitar"
+                            className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                          >
+                            <i className="fas fa-ban"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
+                  {filteredStands.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum stand para aprovação.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -448,31 +428,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100 hover:border-red-200 transition-all">
-                      <h4 className="text-xl font-black text-slate-900 mb-2">Eliminar Todo o Stock</h4>
-                      <p className="text-slate-500 text-sm mb-6 font-medium">Irá remover permanentemente todas as viaturas e leads da base de dados.</p>
-                      <button 
-                        onClick={handleWipeAllStock}
-                        disabled={refreshing}
-                        className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                      >
-                        {refreshing ? <i className="fas fa-spinner animate-spin"></i> : 'Limpar Stock & Leads'}
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100 hover:border-red-200 transition-all">
-                      <h4 className="text-xl font-black text-slate-900 mb-2">Eliminar Todos os Stands</h4>
-                      <p className="text-slate-500 text-sm mb-6 font-medium">Remove todos os perfis de Stands e Utilizadores (Exceto Admin).</p>
-                      <button 
-                        onClick={handleWipeAllStands}
-                        disabled={refreshing}
-                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                      >
-                        {refreshing ? <i className="fas fa-spinner animate-spin"></i> : 'Limpar Todos os Stands'}
-                      </button>
-                    </div>
-
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="bg-red-600 p-8 rounded-[40px] text-white shadow-2xl shadow-red-200 relative overflow-hidden group">
                       <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       <h4 className="text-xl font-black mb-2">Purga Total Atómica</h4>
@@ -488,67 +444,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   </div>
                 </div>
              </div>
-
-             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
-              <div className="flex items-center gap-4 mb-8 text-indigo-600">
-                <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">
-                   <i className="fas fa-terminal"></i>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black">Consola SQL de Emergência</h3>
-                  <p className="text-slate-500 font-medium">Comandos para limpeza via console do Supabase.</p>
-                </div>
-              </div>
-              
-              <div className="bg-slate-900 rounded-[30px] p-8 relative border-4 border-indigo-500/20">
-                <pre id="sql-code-cleanup" className="text-indigo-100 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed">
-{`-- COMANDOS DE DESTRUIÇÃO PERMANENTE (RLS DEVE PERMITIR)
-
--- Limpar Leads (Relacionadas a Carros)
-DELETE FROM public.leads;
-
--- Limpar Carros
-DELETE FROM public.cars;
-
--- Limpar Stands e Clientes (Exceto Admin Principal)
-DELETE FROM public.profiles 
-WHERE role != 'admin' AND email != 'admin@facilitadorcar.pt';
-
--- Recarregar Esquema
-NOTIFY pgrst, 'reload schema';`}
-                </pre>
-              </div>
-             </div>
            </div>
         )}
 
       </div>
 
-      {/* Blog Editor Modal */}
-      {isBlogModalOpen && editingPost && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[50px] shadow-2xl animate-in zoom-in">
-            <form onSubmit={handleSaveBlogPost}>
-              <div className="p-10 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-900">{editingPost.id ? 'Editar Artigo' : 'Novo Artigo'}</h2>
-                </div>
-                <button type="button" onClick={() => setIsBlogModalOpen(false)} className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-900"><i className="fas fa-times"></i></button>
-              </div>
-              {/* Restante do formulário omitido para brevidade mas funcional */}
-              <div className="p-10 space-y-6">
-                 <button type="submit" disabled={refreshing} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black">Salvar Artigo</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
       {refreshing && (
         <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center text-white">
            <div className="w-20 h-20 border-8 border-white border-t-transparent rounded-full animate-spin mb-8"></div>
-           <h2 className="text-4xl font-black uppercase tracking-widest animate-pulse">Sincronizando Purga...</h2>
-           <p className="mt-4 font-bold opacity-75">Por favor aguarde enquanto os dados são removidos permanentemente.</p>
+           <h2 className="text-4xl font-black uppercase tracking-widest animate-pulse">A Processar...</h2>
         </div>
       )}
     </div>
