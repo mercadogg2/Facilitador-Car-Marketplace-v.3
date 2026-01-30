@@ -44,12 +44,12 @@ interface CreateAdProps {
 
 const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
   const t = TRANSLATIONS[lang].createAd;
-  const tc = TRANSLATIONS[lang].common;
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFix, setShowFix] = useState(false);
 
   const [images, setImages] = useState<string[]>([]);
   const [formData, setFormData] = useState({
@@ -65,6 +65,10 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     description: '',
     subdomain: ''
   });
+
+  const sqlFix = `ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
+ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+NOTIFY pgrst, 'reload schema';`;
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -129,6 +133,8 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     }
     setIsSubmitting(true);
     setError(null);
+    setShowFix(false);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada.");
@@ -157,7 +163,16 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
       };
 
       const { error: insertError } = await supabase.from('cars').insert([carData]);
-      if (insertError) throw insertError;
+      
+      if (insertError) {
+        if (insertError.message.includes('reference_code')) {
+           setShowFix(true);
+           throw new Error(lang === 'pt' 
+             ? "ERRO DE SCHEMA: A coluna 'reference_code' (SKU) não existe na sua base de dados." 
+             : "SCHEMA ERROR: Column 'reference_code' (SKU) does not exist in your database.");
+        }
+        throw insertError;
+      }
 
       navigate('/dashboard');
     } catch (err: any) {
@@ -165,6 +180,11 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const copySql = () => {
+    navigator.clipboard.writeText(sqlFix);
+    alert(lang === 'pt' ? "Código SQL Copiado!" : "SQL Code Copied!");
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -178,7 +198,35 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm border border-red-100">{error}</div>}
+          {error && (
+            <div className="p-8 bg-red-50 border-2 border-red-100 rounded-[40px] shadow-sm animate-in shake">
+              <div className="flex items-center gap-4 text-red-600 mb-4">
+                <i className="fas fa-exclamation-triangle text-2xl"></i>
+                <p className="font-black text-lg">{error}</p>
+              </div>
+              
+              {showFix && (
+                <div className="mt-6 bg-white p-6 rounded-3xl border border-red-200">
+                  <p className="text-xs font-bold text-gray-600 mb-4 uppercase tracking-widest">Como resolver agora:</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Copie o código abaixo e cole no <strong>SQL Editor</strong> do seu painel Supabase:
+                  </p>
+                  <div className="bg-gray-900 p-5 rounded-2xl relative group">
+                    <pre className="text-blue-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                      {sqlFix}
+                    </pre>
+                    <button 
+                      type="button"
+                      onClick={copySql}
+                      className="absolute top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg"
+                    >
+                      Copiar SQL
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Galeria */}
           <section className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-gray-100">
@@ -273,7 +321,6 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
             </div>
           </section>
 
-          {/* Descrição */}
           <section className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-gray-100">
             <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center">
               <i className="fas fa-align-left mr-3 text-blue-600"></i>

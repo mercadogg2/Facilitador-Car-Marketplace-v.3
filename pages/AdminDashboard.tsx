@@ -56,11 +56,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [leads, setLeads] = useState<any[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   
-  // Blog Editor State
   const [isBlogModalOpen, setIsBlogModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Partial<BlogPost> | null>(null);
   const [adSearch, setAdSearch] = useState('');
   const [standSearch, setStandSearch] = useState('');
+  const [showSqlRepair, setShowSqlRepair] = useState(false);
+
+  const sqlRepairScript = `ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
+ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0;
+NOTIFY pgrst, 'reload schema';`;
 
   const fetchPlatformData = async () => {
     setRefreshing(true);
@@ -120,30 +125,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const handleTotalPurge = async () => {
-    const confirm1 = lang === 'pt' 
-      ? "🔥 PURGA TOTAL ATÓMICA!\nDeseja apagar TUDO (Stands, Carros, Leads) agora? Não há volta atrás." 
-      : "🔥 ATOMIC TOTAL PURGE!\nDo you want to wipe EVERYTHING (Dealers, Cars, Leads) now? No turning back.";
-    
-    if (!window.confirm(confirm1)) return;
-    
-    const confirm2 = lang === 'pt' 
-      ? "CONFIRMAÇÃO FINAL: Escreva 'APAGAR' para confirmar a destruição permanente de todos os dados comerciais." 
-      : "FINAL CONFIRMATION: Type 'DELETE' to confirm permanent destruction of all commercial data.";
-    
-    const userInput = window.prompt(confirm2);
-    if (userInput?.toUpperCase() !== (lang === 'pt' ? 'APAGAR' : 'DELETE')) return;
+    if (!window.confirm("🔥 PURGA TOTAL ATÓMICA!\nDeseja apagar TUDO (Stands, Carros, Leads) agora? Não há volta atrás.")) return;
+    const userInput = window.prompt("CONFIRMAÇÃO FINAL: Escreva 'APAGAR' para confirmar a destruição permanente de todos os dados comerciais.");
+    if (userInput?.toUpperCase() !== 'APAGAR') return;
 
     setRefreshing(true);
     try {
       await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('cars').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('profiles').delete().neq('role', UserRole.ADMIN).neq('email', 'admin@facilitadorcar.pt');
-
       setAds([]);
       setLeads([]);
       setUsers(prev => prev.filter(u => u.role === UserRole.ADMIN));
-      
-      alert(lang === 'pt' ? "A plataforma foi completamente limpa." : "Platform completely purged.");
+      alert("A plataforma foi completamente limpa.");
     } catch (err: any) {
       alert("Erro crítico na purga: " + err.message);
     } finally {
@@ -151,21 +145,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
-  // Blog Handlers
   const handleOpenBlogModal = (post?: BlogPost) => {
-    if (post) {
-      setEditingPost(post);
-    } else {
-      setEditingPost({
-        title: '',
-        excerpt: '',
-        content: '',
-        author: 'Admin Facilitador',
-        date: new Date().toISOString().split('T')[0],
-        reading_time: '5 min',
-        image: ''
-      });
-    }
+    if (post) setEditingPost(post);
+    else setEditingPost({ title: '', excerpt: '', content: '', author: 'Admin Facilitador', date: new Date().toISOString().split('T')[0], reading_time: '5 min', image: '' });
     setIsBlogModalOpen(true);
   };
 
@@ -173,7 +155,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     e.preventDefault();
     if (!editingPost) return;
     setRefreshing(true);
-
     try {
       if (editingPost.id) {
         const { error } = await supabase.from('blog_posts').update(editingPost).eq('id', editingPost.id);
@@ -202,17 +183,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         setEditingPost({ ...editingPost, image: compressed });
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    if (!window.confirm("Eliminar este artigo permanentemente?")) return;
-    try {
-      const { error } = await supabase.from('blog_posts').delete().eq('id', postId);
-      if (error) throw error;
-      setPosts(prev => prev.filter(p => p.id !== postId));
-    } catch (err: any) {
-      alert("Erro ao eliminar: " + err.message);
     }
   };
 
@@ -274,7 +244,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         </header>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
              {[
               { label: 'Stock Ativo', val: ads.length, color: 'bg-indigo-600', icon: 'fa-car' },
               { label: 'Total Leads', val: leads.length, color: 'bg-blue-600', icon: 'fa-bolt' },
@@ -289,99 +259,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                 <h4 className="text-4xl font-black text-slate-900">{stat.val}</h4>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* TAB STANDS - APROVAÇÃO E GESTÃO */}
-        {activeTab === 'stands' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
-            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900">Gestão de Parceiros</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Aprovação de novos utilizadores</p>
-              </div>
-              <div className="relative">
-                <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar stand..." 
-                  className="pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
-                  value={standSearch}
-                  onChange={(e) => setStandSearch(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Stand / Responsável</th>
-                    <th className="px-8 py-5">Contacto</th>
-                    <th className="px-8 py-5">Estado</th>
-                    <th className="px-8 py-5">Data Registo</th>
-                    <th className="px-8 py-5 text-right">Moderação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredStands.map(user => (
-                    <tr key={user.id} className="hover:bg-slate-50/50">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-indigo-600 font-black overflow-hidden border border-slate-200">
-                              {user.profile_image ? <img src={user.profile_image} className="w-full h-full object-cover" alt="" /> : (user.stand_name?.[0] || user.full_name?.[0] || 'S')}
-                           </div>
-                           <div>
-                              <p className="font-black text-slate-900">{user.stand_name || 'Individual'}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{user.full_name}</p>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-600">{user.email}</p>
-                        <p className="text-[10px] text-indigo-600 font-black">{user.phone || 'Sem telemóvel'}</p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                          user.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                          user.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                          'bg-amber-100 text-amber-700 animate-pulse'
-                        }`}>
-                          {user.status === 'pending' ? 'Pendente' : user.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => handleUpdateUserStatus(user.id, 'approved')}
-                            title="Aprovar"
-                            className="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all"
-                          >
-                            <i className="fas fa-check"></i>
-                          </button>
-                          <button 
-                            onClick={() => handleUpdateUserStatus(user.id, 'pending')}
-                            title="Colocar Pendente"
-                            className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all"
-                          >
-                            <i className="fas fa-clock"></i>
-                          </button>
-                          <button 
-                            onClick={() => handleUpdateUserStatus(user.id, 'rejected')}
-                            title="Rejeitar"
-                            className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
-                          >
-                            <i className="fas fa-ban"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
 
@@ -411,8 +288,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       <th className="px-8 py-5">Viatura</th>
                       <th className="px-8 py-5">SKU / Ref</th>
                       <th className="px-8 py-5">Stand</th>
-                      <th className="px-8 py-5">Preço</th>
-                      <th className="px-8 py-5">Estado</th>
                       <th className="px-8 py-5 text-right">Ações</th>
                     </tr>
                   </thead>
@@ -424,7 +299,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                               <img src={car.image} className="w-16 h-12 rounded-xl object-cover border border-slate-200" alt="" />
                               <div>
                                  <p className="font-black text-slate-900">{car.brand} {car.model}</p>
-                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year} • {car.fuel}</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year}</p>
                               </div>
                            </div>
                         </td>
@@ -436,28 +311,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         <td className="px-8 py-6">
                            <span className="text-xs font-bold text-indigo-600">{car.stand_name}</span>
                         </td>
-                        <td className="px-8 py-6">
-                           <span className="font-black text-slate-900">{formatCurrency(car.price, lang)}</span>
-                        </td>
-                        <td className="px-8 py-6">
-                           <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${car.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
-                              {car.active ? 'Ativo' : 'Oculto'}
-                           </span>
-                        </td>
                         <td className="px-8 py-6 text-right">
                            <div className="flex justify-end gap-2">
-                              <button 
-                                onClick={() => navigate(`/editar-anuncio/${car.id}`)}
-                                className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteCar(car.id)}
-                                className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
+                              <button onClick={() => navigate(`/editar-anuncio/${car.id}`)} className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"><i className="fas fa-edit"></i></button>
+                              <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash"></i></button>
                            </div>
                         </td>
                       </tr>
@@ -468,275 +325,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
-        {/* Tab Leads */}
-        {activeTab === 'leads' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
-            <div className="p-8 border-b bg-slate-50/50">
-              <h3 className="text-2xl font-black text-slate-900">Gestão de Leads</h3>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Interesses registados pelos clientes</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Cliente / Contacto</th>
-                    <th className="px-8 py-5">Viatura / SKU</th>
-                    <th className="px-8 py-5">Stand Alvo</th>
-                    <th className="px-8 py-5">Data</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {leads.map(lead => (
-                    <tr key={lead.id} className="hover:bg-slate-50/50">
-                      <td className="px-8 py-6">
-                        <p className="font-black text-slate-900">{lead.customer_name}</p>
-                        <p className="text-xs text-indigo-600 font-bold">{lead.customer_email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                           <i className="fas fa-phone-alt text-[9px] text-slate-400"></i>
-                           <p className="text-xs text-slate-900 font-black">{lead.customer_phone}</p>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                           <p className="text-sm font-bold text-slate-700">
-                             {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Removida'}
-                           </p>
-                           {lead.cars?.reference_code && (
-                             <span className="text-[9px] font-black text-blue-600 uppercase mt-0.5">SKU: {lead.cars.reference_code}</span>
-                           )}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lead.stand_name}</p>
-                      </td>
-                      <td className="px-8 py-6 text-xs text-slate-400 font-medium">
-                        {new Date(lead.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                  {leads.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhuma lead registada.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB BLOG - LISTAGEM E EDITOR */}
-        {activeTab === 'blog' && (
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
-            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900">Gestão do Blog</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Artigos e Dicas Facilitador</p>
-              </div>
-              <button 
-                onClick={() => handleOpenBlogModal()}
-                className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-3 shadow-xl shadow-indigo-100"
-              >
-                <i className="fas fa-plus"></i>
-                Novo Artigo
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
-                  <tr>
-                    <th className="px-8 py-5">Artigo</th>
-                    <th className="px-8 py-5">Data</th>
-                    <th className="px-8 py-5">Autor</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {posts.map(post => (
-                    <tr key={post.id} className="hover:bg-slate-50/50">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                           <img src={post.image} className="w-20 h-14 rounded-xl object-cover border border-slate-200" alt="" />
-                           <div className="max-w-xs">
-                              <p className="font-black text-slate-900 truncate">{post.title}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{post.excerpt}</p>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-sm font-bold text-slate-600">
-                        {new Date(post.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-8 py-6 text-xs text-indigo-600 font-black">
-                        {post.author}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => handleOpenBlogModal(post)}
-                            className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          <button 
-                            onClick={() => handleDeletePost(post.id)}
-                            className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Infra - Nuclear Zone */}
+        {/* Tab Infra - Reparação de Erros */}
         {activeTab === 'infra' && (
            <div className="space-y-8 animate-in fade-in">
-             <div className="bg-white rounded-[40px] shadow-sm border-4 border-red-50 p-12 overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-80 h-80 bg-red-50 rounded-full -mr-40 -mt-40 opacity-40"></div>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-6 mb-12">
-                    <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-orange-600 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl shadow-red-200 animate-pulse">
-                       <i className="fas fa-radiation"></i>
+             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12 overflow-hidden relative">
+                <div className="flex items-center gap-6 mb-12">
+                    <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl">
+                       <i className="fas fa-wrench"></i>
                     </div>
                     <div>
-                      <h3 className="text-4xl font-black text-slate-900">Zona de Perigo (Purga Permanente)</h3>
-                      <p className="text-red-600 font-black uppercase text-xs tracking-[0.2em] mt-1">Limpeza definitiva de Stands e Veículos</p>
+                      <h3 className="text-4xl font-black text-slate-900">Assistente de Reparação</h3>
+                      <p className="text-blue-600 font-black uppercase text-xs tracking-widest mt-1">Sincronização de Esquema de Dados</p>
                     </div>
-                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-red-600 p-8 rounded-[40px] text-white shadow-2xl shadow-red-200 relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <h4 className="text-xl font-black mb-2">Purga Total Atómica</h4>
-                      <p className="text-red-100 text-sm mb-6 font-bold">Limpa SIMULTANEAMENTE todos os Stands, Anúncios e Leads. Estado Zero.</p>
-                      <button 
-                        onClick={handleTotalPurge}
-                        disabled={refreshing}
-                        className="w-full py-5 bg-white text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] transition-all shadow-xl active:scale-95 disabled:opacity-50"
-                      >
-                        {refreshing ? <i className="fas fa-spinner animate-spin"></i> : 'EXECUTAR PURGA TOTAL'}
-                      </button>
+                <div className="bg-slate-900 p-8 rounded-[40px] text-white">
+                    <div className="flex justify-between items-center mb-6">
+                        <h4 className="text-xl font-black">Script SQL de Reparação (Erro SKU)</h4>
+                        <button 
+                           onClick={() => { navigator.clipboard.writeText(sqlRepairScript); alert("Copiado!"); }}
+                           className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase"
+                        >
+                           Copiar Script
+                        </button>
                     </div>
-                  </div>
+                    <p className="text-slate-400 text-sm mb-6 font-medium leading-relaxed">
+                       Se estiver a receber o erro <strong>"Could not find column reference_code"</strong>, cole este script no seu painel Supabase:
+                    </p>
+                    <div className="bg-black/50 p-6 rounded-2xl border border-white/10">
+                       <pre className="font-mono text-xs text-blue-400 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                          {sqlRepairScript}
+                       </pre>
+                    </div>
+                </div>
+
+                <div className="mt-8">
+                   <button 
+                      onClick={handleTotalPurge}
+                      className="w-full py-6 bg-red-50 text-red-600 rounded-[30px] font-black text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all"
+                   >
+                      <i className="fas fa-radiation mr-3"></i>
+                      Purga Total de Dados (Cuidado!)
+                   </button>
                 </div>
              </div>
            </div>
         )}
-
       </div>
-
-      {/* MODAL DO EDITOR DE BLOG */}
-      {isBlogModalOpen && editingPost && (
-        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[50px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-300">
-            <div className="bg-indigo-600 p-8 text-white flex justify-between items-center shrink-0">
-              <div>
-                <h3 className="text-2xl font-black">{editingPost.id ? 'Editar Artigo' : 'Novo Artigo'}</h3>
-                <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest mt-1">Editor Facilitador Car</p>
-              </div>
-              <button onClick={() => setIsBlogModalOpen(false)} className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all">
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-
-            <div className="p-10 overflow-y-auto space-y-8">
-              <form id="blogForm" onSubmit={handleSaveBlogPost} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Título do Artigo</label>
-                  <input 
-                    required 
-                    type="text" 
-                    value={editingPost.title} 
-                    onChange={(e) => setEditingPost({...editingPost, title: e.target.value})}
-                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-black text-lg" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Imagem Principal</label>
-                  <div className="relative group aspect-video rounded-3xl overflow-hidden bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center">
-                     {editingPost.image ? (
-                       <>
-                         <img src={editingPost.image} className="w-full h-full object-cover" alt="" />
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-white text-slate-900 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest">Alterar</button>
-                         </div>
-                       </>
-                     ) : (
-                       <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 text-slate-400">
-                          <i className="fas fa-image text-3xl"></i>
-                          <span className="text-[10px] font-black uppercase tracking-widest">Upload Imagem</span>
-                       </button>
-                     )}
-                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleBlogImageChange} />
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Excerto (Resumo)</label>
-                    <textarea 
-                      required 
-                      rows={4} 
-                      value={editingPost.excerpt}
-                      onChange={(e) => setEditingPost({...editingPost, excerpt: e.target.value})}
-                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-sm resize-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div>
-                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Data</label>
-                       <input type="date" value={editingPost.date} onChange={(e) => setEditingPost({...editingPost, date: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-none text-xs font-bold" />
-                     </div>
-                     <div>
-                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Leitura</label>
-                       <input type="text" value={editingPost.reading_time} onChange={(e) => setEditingPost({...editingPost, reading_time: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-none text-xs font-bold" />
-                     </div>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Conteúdo do Artigo</label>
-                  <textarea 
-                    required 
-                    rows={12} 
-                    value={editingPost.content}
-                    onChange={(e) => setEditingPost({...editingPost, content: e.target.value})}
-                    className="w-full px-8 py-6 rounded-[40px] bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-base leading-relaxed"
-                  />
-                </div>
-              </form>
-            </div>
-
-            <div className="p-8 border-t bg-slate-50 flex justify-end gap-4 shrink-0">
-              <button 
-                onClick={() => setIsBlogModalOpen(false)}
-                className="px-10 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600"
-              >
-                Cancelar
-              </button>
-              <button 
-                form="blogForm"
-                type="submit"
-                disabled={refreshing}
-                className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
-              >
-                {refreshing ? <i className="fas fa-spinner animate-spin"></i> : 'Publicar Artigo'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {refreshing && (
         <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center text-white">
            <div className="w-20 h-20 border-8 border-white border-t-transparent rounded-full animate-spin mb-8"></div>
-           <h2 className="text-4xl font-black uppercase tracking-widest animate-pulse">A Processar...</h2>
+           <h2 className="text-4xl font-black uppercase tracking-widest">A Sincronizar...</h2>
         </div>
       )}
     </div>
