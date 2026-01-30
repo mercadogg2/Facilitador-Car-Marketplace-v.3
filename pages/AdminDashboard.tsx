@@ -60,7 +60,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [editingPost, setEditingPost] = useState<Partial<BlogPost> | null>(null);
   const [adSearch, setAdSearch] = useState('');
   const [standSearch, setStandSearch] = useState('');
-  const [showSqlRepair, setShowSqlRepair] = useState(false);
 
   const sqlRepairScript = `ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
@@ -84,7 +83,7 @@ NOTIFY pgrst, 'reload schema';`;
       setPosts(blogRes.data || []);
 
     } catch (err: any) {
-      setError(`Erro de Rede: ${err.message}`);
+      setError(`Erro ao carregar dados: ${err.message}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -116,7 +115,6 @@ NOTIFY pgrst, 'reload schema';`;
       const { error: carError } = await supabase.from('cars').delete().eq('id', carId);
       if (carError) throw carError;
       setAds(prev => prev.filter(a => a.id !== carId));
-      alert("Viatura removida.");
     } catch (err: any) {
       alert(`Falha crítica: ${err.message}`);
     } finally {
@@ -124,30 +122,20 @@ NOTIFY pgrst, 'reload schema';`;
     }
   };
 
-  const handleTotalPurge = async () => {
-    if (!window.confirm("🔥 PURGA TOTAL ATÓMICA!\nDeseja apagar TUDO (Stands, Carros, Leads) agora? Não há volta atrás.")) return;
-    const userInput = window.prompt("CONFIRMAÇÃO FINAL: Escreva 'APAGAR' para confirmar a destruição permanente de todos os dados comerciais.");
-    if (userInput?.toUpperCase() !== 'APAGAR') return;
-
-    setRefreshing(true);
-    try {
-      await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('cars').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('profiles').delete().neq('role', UserRole.ADMIN).neq('email', 'admin@facilitadorcar.pt');
-      setAds([]);
-      setLeads([]);
-      setUsers(prev => prev.filter(u => u.role === UserRole.ADMIN));
-      alert("A plataforma foi completamente limpa.");
-    } catch (err: any) {
-      alert("Erro crítico na purga: " + err.message);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleOpenBlogModal = (post?: BlogPost) => {
-    if (post) setEditingPost(post);
-    else setEditingPost({ title: '', excerpt: '', content: '', author: 'Admin Facilitador', date: new Date().toISOString().split('T')[0], reading_time: '5 min', image: '' });
+    if (post) {
+      setEditingPost(post);
+    } else {
+      setEditingPost({
+        title: '',
+        excerpt: '',
+        content: '',
+        author: 'Admin Facilitador',
+        date: new Date().toISOString().split('T')[0],
+        reading_time: '5 min',
+        image: ''
+      });
+    }
     setIsBlogModalOpen(true);
   };
 
@@ -166,9 +154,21 @@ NOTIFY pgrst, 'reload schema';`;
         if (data) setPosts(prev => [data[0], ...prev]);
       }
       setIsBlogModalOpen(false);
-      setEditingPost(null);
     } catch (err: any) {
-      alert("Erro ao salvar post: " + err.message);
+      alert("Erro ao salvar artigo: " + err.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleDeletePost = async (id: string) => {
+    if (!window.confirm("Apagar este artigo definitivamente?")) return;
+    setRefreshing(true);
+    try {
+      await supabase.from('blog_posts').delete().eq('id', id);
+      setPosts(prev => prev.filter(p => p.id !== id));
+    } catch (err: any) {
+      alert("Erro ao apagar: " + err.message);
     } finally {
       setRefreshing(false);
     }
@@ -183,6 +183,27 @@ NOTIFY pgrst, 'reload schema';`;
         setEditingPost({ ...editingPost, image: compressed });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleTotalPurge = async () => {
+    if (!window.confirm("🔥 PURGA TOTAL ATÓMICA!\nDeseja apagar TUDO agora? Não há volta atrás.")) return;
+    const userInput = window.prompt("Escreva 'APAGAR' para confirmar.");
+    if (userInput?.toUpperCase() !== 'APAGAR') return;
+
+    setRefreshing(true);
+    try {
+      await supabase.from('leads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('cars').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('profiles').delete().neq('role', UserRole.ADMIN).neq('email', 'admin@facilitadorcar.pt');
+      setAds([]);
+      setLeads([]);
+      setUsers(prev => prev.filter(u => u.role === UserRole.ADMIN));
+      alert("Plataforma limpa.");
+    } catch (err: any) {
+      alert("Erro na purga: " + err.message);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -203,7 +224,7 @@ NOTIFY pgrst, 'reload schema';`;
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-400 font-bold uppercase text-[10px]">A aceder à central...</p>
+        <p className="text-slate-400 font-bold uppercase text-[10px]">Acedendo à Central...</p>
       </div>
     </div>
   );
@@ -244,7 +265,7 @@ NOTIFY pgrst, 'reload schema';`;
         </header>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in duration-500">
              {[
               { label: 'Stock Ativo', val: ads.length, color: 'bg-indigo-600', icon: 'fa-car' },
               { label: 'Total Leads', val: leads.length, color: 'bg-blue-600', icon: 'fa-bolt' },
@@ -262,60 +283,39 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
         )}
 
-        {/* TAB STOCK - GESTÃO DE ANÚNCIOS */}
-        {activeTab === 'ads' && (
+        {/* ABA LEADS */}
+        {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
-             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
-                <div>
-                  <h3 className="text-2xl font-black text-slate-900">Gestão de Stock</h3>
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Todos os anúncios da plataforma</p>
-                </div>
-                <div className="relative">
-                  <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                  <input 
-                    type="text" 
-                    placeholder="Pesquisar por SKU ou Modelo..." 
-                    className="pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
-                    value={adSearch}
-                    onChange={(e) => setAdSearch(e.target.value)}
-                  />
-                </div>
+             <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+                <h3 className="text-2xl font-black">Interessados (Leads)</h3>
+                <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-600 px-4 py-1.5 rounded-full">Gestão Central</span>
              </div>
              <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <tr>
-                      <th className="px-8 py-5">Viatura</th>
-                      <th className="px-8 py-5">SKU / Ref</th>
-                      <th className="px-8 py-5">Stand</th>
-                      <th className="px-8 py-5 text-right">Ações</th>
+                      <th className="px-8 py-4">Cliente</th>
+                      <th className="px-8 py-4">Viatura / Stand</th>
+                      <th className="px-8 py-4">Mensagem</th>
+                      <th className="px-8 py-4">Data</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredAds.map(car => (
-                      <tr key={car.id} className="hover:bg-slate-50/50">
+                    {leads.map(lead => (
+                      <tr key={lead.id} className="hover:bg-slate-50/50">
                         <td className="px-8 py-6">
-                           <div className="flex items-center gap-4">
-                              <img src={car.image} className="w-16 h-12 rounded-xl object-cover border border-slate-200" alt="" />
-                              <div>
-                                 <p className="font-black text-slate-900">{car.brand} {car.model}</p>
-                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year}</p>
-                              </div>
-                           </div>
+                           <p className="font-black text-slate-900">{lead.customer_name}</p>
+                           <p className="text-xs text-slate-400">{lead.customer_phone}</p>
                         </td>
                         <td className="px-8 py-6">
-                           <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
-                              {car.reference_code || 'Sem SKU'}
-                           </span>
+                           <p className="text-sm font-bold text-slate-700">{lead.cars?.brand} {lead.cars?.model}</p>
+                           <p className="text-[10px] text-indigo-600 font-black uppercase">{lead.stand_name}</p>
                         </td>
-                        <td className="px-8 py-6">
-                           <span className="text-xs font-bold text-indigo-600">{car.stand_name}</span>
+                        <td className="px-8 py-6 max-w-xs">
+                           <p className="text-xs text-slate-500 truncate">{lead.message}</p>
                         </td>
-                        <td className="px-8 py-6 text-right">
-                           <div className="flex justify-end gap-2">
-                              <button onClick={() => navigate(`/editar-anuncio/${car.id}`)} className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"><i className="fas fa-edit"></i></button>
-                              <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash"></i></button>
-                           </div>
+                        <td className="px-8 py-6 text-xs text-slate-400">
+                           {new Date(lead.created_at).toLocaleDateString()}
                         </td>
                       </tr>
                     ))}
@@ -325,10 +325,133 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
         )}
 
-        {/* Tab Infra - Reparação de Erros */}
+        {/* ABA STANDS */}
+        {activeTab === 'stands' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+             <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+                <h3 className="text-2xl font-black">Aprovação de Stands</h3>
+                <input 
+                  type="text" placeholder="Filtrar stand..." 
+                  className="px-4 py-2 rounded-xl border text-sm font-bold"
+                  value={standSearch} onChange={e => setStandSearch(e.target.value)}
+                />
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <tr>
+                      <th className="px-8 py-4">Stand / Nome</th>
+                      <th className="px-8 py-4">Estado</th>
+                      <th className="px-8 py-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredStands.map(user => (
+                      <tr key={user.id} className="hover:bg-slate-50/50">
+                        <td className="px-8 py-6">
+                           <p className="font-black text-slate-900">{user.stand_name || 'Individual'}</p>
+                           <p className="text-xs text-slate-400">{user.full_name} • {user.email}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                             user.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                           }`}>
+                             {user.status}
+                           </span>
+                        </td>
+                        <td className="px-8 py-6 text-right space-x-2">
+                           <button onClick={() => handleUpdateUserStatus(user.id, 'approved')} className="w-10 h-10 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all"><i className="fas fa-check"></i></button>
+                           <button onClick={() => handleUpdateUserStatus(user.id, 'rejected')} className="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-times"></i></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+
+        {/* ABA STOCK */}
+        {activeTab === 'ads' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+             <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+                <h3 className="text-2xl font-black">Stock Global</h3>
+                <input 
+                  type="text" placeholder="Filtrar viatura ou SKU..." 
+                  className="px-4 py-2 rounded-xl border text-sm font-bold"
+                  value={adSearch} onChange={e => setAdSearch(e.target.value)}
+                />
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <tr>
+                      <th className="px-8 py-4">Viatura</th>
+                      <th className="px-8 py-4">REF / SKU</th>
+                      <th className="px-8 py-4">Preço</th>
+                      <th className="px-8 py-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredAds.map(car => (
+                      <tr key={car.id} className="hover:bg-slate-50/50">
+                        <td className="px-8 py-6">
+                           <div className="flex items-center gap-4">
+                              <img src={car.image} className="w-14 h-10 rounded-lg object-cover" />
+                              <p className="font-black text-slate-900">{car.brand} {car.model}</p>
+                           </div>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg uppercase">{car.reference_code || 'S/ SKU'}</span>
+                        </td>
+                        <td className="px-8 py-6 font-bold">{formatCurrency(car.price, lang)}</td>
+                        <td className="px-8 py-6 text-right">
+                           <button onClick={() => handleDeleteCar(car.id)} className="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-trash"></i></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+
+        {/* ABA BLOG - EDITOR */}
+        {activeTab === 'blog' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+             <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+                <h3 className="text-2xl font-black">Blog Facilitador</h3>
+                <button 
+                  onClick={() => handleOpenBlogModal()}
+                  className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100"
+                >
+                  Novo Artigo
+                </button>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8">
+                {posts.map(post => (
+                   <div key={post.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden group">
+                      <div className="relative h-48">
+                         <img src={post.image} className="w-full h-full object-cover" alt="" />
+                         <div className="absolute top-4 right-4 flex gap-2">
+                            <button onClick={() => handleOpenBlogModal(post)} className="w-10 h-10 bg-white/90 rounded-xl text-indigo-600 shadow-lg"><i className="fas fa-edit"></i></button>
+                            <button onClick={() => handleDeletePost(post.id)} className="w-10 h-10 bg-red-500 text-white rounded-xl shadow-lg"><i className="fas fa-trash"></i></button>
+                         </div>
+                      </div>
+                      <div className="p-6">
+                         <h4 className="font-black text-slate-900 mb-2 line-clamp-1">{post.title}</h4>
+                         <p className="text-xs text-slate-400 line-clamp-2">{post.excerpt}</p>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </div>
+        )}
+
+        {/* ABA INFRA - REPARAÇÃO */}
         {activeTab === 'infra' && (
            <div className="space-y-8 animate-in fade-in">
-             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12 overflow-hidden relative">
+             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-12">
                 <div className="flex items-center gap-6 mb-12">
                     <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl">
                        <i className="fas fa-wrench"></i>
@@ -341,7 +464,7 @@ NOTIFY pgrst, 'reload schema';`;
 
                 <div className="bg-slate-900 p-8 rounded-[40px] text-white">
                     <div className="flex justify-between items-center mb-6">
-                        <h4 className="text-xl font-black">Script SQL de Reparação (Erro SKU)</h4>
+                        <h4 className="text-xl font-black">Script SQL de Reparação</h4>
                         <button 
                            onClick={() => { navigator.clipboard.writeText(sqlRepairScript); alert("Copiado!"); }}
                            className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase"
@@ -349,9 +472,6 @@ NOTIFY pgrst, 'reload schema';`;
                            Copiar Script
                         </button>
                     </div>
-                    <p className="text-slate-400 text-sm mb-6 font-medium leading-relaxed">
-                       Se estiver a receber o erro <strong>"Could not find column reference_code"</strong>, cole este script no seu painel Supabase:
-                    </p>
                     <div className="bg-black/50 p-6 rounded-2xl border border-white/10">
                        <pre className="font-mono text-xs text-blue-400 overflow-x-auto whitespace-pre-wrap leading-relaxed">
                           {sqlRepairScript}
@@ -373,8 +493,53 @@ NOTIFY pgrst, 'reload schema';`;
         )}
       </div>
 
+      {/* MODAL BLOG EDITOR */}
+      {isBlogModalOpen && editingPost && (
+        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[50px] shadow-2xl overflow-y-auto animate-in zoom-in">
+              <div className="p-10 border-b flex justify-between items-center bg-slate-50">
+                 <h2 className="text-3xl font-black">{editingPost.id ? 'Editar Artigo' : 'Novo Artigo'}</h2>
+                 <button onClick={() => setIsBlogModalOpen(false)} className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400 hover:text-red-500"><i className="fas fa-times text-xl"></i></button>
+              </div>
+              <form onSubmit={handleSaveBlogPost} className="p-10 space-y-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="md:col-span-2">
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Título do Artigo</label>
+                       <input required value={editingPost.title} onChange={e => setEditingPost({...editingPost, title: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-black" />
+                    </div>
+                    <div className="md:col-span-2">
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Resumo Curto (Excerpt)</label>
+                       <input required value={editingPost.excerpt} onChange={e => setEditingPost({...editingPost, excerpt: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-bold" />
+                    </div>
+                    <div className="md:col-span-2">
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Imagem de Capa</label>
+                       <div className="flex flex-col items-center gap-6 p-10 bg-slate-50 rounded-[35px] border-2 border-dashed border-slate-200">
+                          {editingPost.image && <img src={editingPost.image} className="w-64 h-40 object-cover rounded-3xl shadow-xl" />}
+                          <button type="button" onClick={() => fileInputRef.current?.click()} className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest">Selecionar Imagem</button>
+                          <input ref={fileInputRef} type="file" hidden onChange={handleBlogImageChange} />
+                       </div>
+                    </div>
+                    <div>
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Autor</label>
+                       <input value={editingPost.author} onChange={e => setEditingPost({...editingPost, author: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-bold" />
+                    </div>
+                    <div>
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Tempo de Leitura</label>
+                       <input value={editingPost.reading_time} onChange={e => setEditingPost({...editingPost, reading_time: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-bold" />
+                    </div>
+                    <div className="md:col-span-2">
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Conteúdo Completo</label>
+                       <textarea required rows={12} value={editingPost.content} onChange={e => setEditingPost({...editingPost, content: e.target.value})} className="w-full px-8 py-6 rounded-[35px] bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-medium leading-relaxed resize-none" />
+                    </div>
+                 </div>
+                 <button type="submit" className="w-full py-6 bg-indigo-600 text-white rounded-[30px] font-black text-xl shadow-2xl hover:bg-indigo-700 transition-all">Salvar Artigo</button>
+              </form>
+           </div>
+        </div>
+      )}
+
       {refreshing && (
-        <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center text-white">
+        <div className="fixed inset-0 z-[5000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center text-white">
            <div className="w-20 h-20 border-8 border-white border-t-transparent rounded-full animate-spin mb-8"></div>
            <h2 className="text-4xl font-black uppercase tracking-widest">A Sincronizar...</h2>
         </div>

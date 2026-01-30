@@ -102,7 +102,10 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Home lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             <Route path="/veiculos" element={<Listings lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
+            
+            {/* Rota crítica: Deve vir antes das rotas de slug genérico */}
             <Route path="/veiculos/:id" element={<CarDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
+            
             <Route path="/v/:slug" element={<VanityCarDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
             <Route path="/sobre" element={<About lang={language} />} />
             <Route path="/blog" element={<Blog lang={language} />} />
@@ -125,6 +128,7 @@ const App: React.FC = () => {
             <Route path="/termos" element={<TermsOfUse lang={language} />} />
             <Route path="/cookies" element={<CookiePolicy lang={language} />} />
 
+            {/* Rota de catch-all para slugs de stands na raiz */}
             <Route path="/:slug" element={<StandDetail lang={language} onToggleFavorite={handleToggleFavorite} favorites={favorites} />} />
           </Routes>
           <SupportWidget lang={language} />
