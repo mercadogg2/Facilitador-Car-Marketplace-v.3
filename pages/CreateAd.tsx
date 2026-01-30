@@ -63,7 +63,8 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
     price: '',
     location: '',
     description: '',
-    subdomain: ''
+    subdomain: '',
+    reference_code: '' // Novo campo
   });
 
   useEffect(() => {
@@ -100,7 +101,6 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
   };
 
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Explicitly cast Array.from result to File[] to avoid 'unknown' type issues in forEach
     const files = Array.from(e.target.files || []) as File[];
     if (images.length + files.length > 10) {
       alert(lang === 'pt' ? 'Máximo 10 fotos.' : 'Max 10 photos.');
@@ -112,7 +112,6 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
         const compressed = await compressImage(reader.result as string);
         setImages(prev => [...prev, compressed]);
       };
-      // Fix: 'file' is now guaranteed to be a File (which is a Blob)
       reader.readAsDataURL(file);
     });
   };
@@ -148,7 +147,8 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
         stand_name: profile?.stand_name || user.user_metadata?.stand_name || 'Particular',
         user_id: user.id,
         verified: false,
-        active: true
+        active: true,
+        reference_code: formData.reference_code || `REF-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
       };
 
       const { error: insertError } = await supabase.from('cars').insert([carData]);
@@ -200,10 +200,16 @@ const CreateAd: React.FC<CreateAdProps> = ({ lang }) => {
 
           {/* Dados Principais */}
           <section className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-gray-100">
-            <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center">
-              <i className="fas fa-info-circle mr-3 text-blue-600"></i>
-              Informações Gerais
-            </h3>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black text-gray-900 flex items-center">
+                <i className="fas fa-info-circle mr-3 text-blue-600"></i>
+                Informações Gerais
+              </h3>
+              <div className="w-1/3">
+                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Código de Referência (Opcional)</label>
+                 <input name="reference_code" value={formData.reference_code} onChange={handleChange} placeholder="Ex: FC-1234" className="w-full px-5 py-3 rounded-xl bg-blue-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-black text-xs uppercase" />
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Marca</label>

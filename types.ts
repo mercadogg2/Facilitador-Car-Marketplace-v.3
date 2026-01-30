@@ -45,7 +45,8 @@ export interface Car {
   user_id?: string;
   active?: boolean;
   is_featured?: boolean;
-  views?: number; // Novo campo para análise
+  views?: number;
+  reference_code?: string; // Novo campo para busca rápida
 }
 
 export interface Lead {

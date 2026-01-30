@@ -222,7 +222,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   );
 
   const filteredAds = useMemo(() => 
-    ads.filter(a => `${a.brand} ${a.model}`.toLowerCase().includes(adSearch.toLowerCase())),
+    ads.filter(a => 
+      `${a.brand} ${a.model}`.toLowerCase().includes(adSearch.toLowerCase()) || 
+      (a.reference_code || '').toLowerCase().includes(adSearch.toLowerCase())
+    ),
     [ads, adSearch]
   );
 
@@ -376,11 +379,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       </td>
                     </tr>
                   ))}
-                  {filteredStands.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum utilizador encontrado.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -399,7 +397,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
                   <input 
                     type="text" 
-                    placeholder="Pesquisar viatura..." 
+                    placeholder="Pesquisar por SKU ou Modelo..." 
                     className="pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
                     value={adSearch}
                     onChange={(e) => setAdSearch(e.target.value)}
@@ -411,6 +409,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
                     <tr>
                       <th className="px-8 py-5">Viatura</th>
+                      <th className="px-8 py-5">SKU / Ref</th>
                       <th className="px-8 py-5">Stand</th>
                       <th className="px-8 py-5">Preço</th>
                       <th className="px-8 py-5">Estado</th>
@@ -430,6 +429,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                            </div>
                         </td>
                         <td className="px-8 py-6">
+                           <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                              {car.reference_code || 'Sem SKU'}
+                           </span>
+                        </td>
+                        <td className="px-8 py-6">
                            <span className="text-xs font-bold text-indigo-600">{car.stand_name}</span>
                         </td>
                         <td className="px-8 py-6">
@@ -441,12 +445,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                            </span>
                         </td>
                         <td className="px-8 py-6 text-right">
-                           <button 
-                             onClick={() => handleDeleteCar(car.id)}
-                             className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
-                           >
-                             <i className="fas fa-trash"></i>
-                           </button>
+                           <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => navigate(`/editar-anuncio/${car.id}`)}
+                                className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteCar(car.id)}
+                                className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                           </div>
                         </td>
                       </tr>
                     ))}
@@ -467,8 +479,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
                   <tr>
-                    <th className="px-8 py-5">Cliente</th>
-                    <th className="px-8 py-5">Viatura</th>
+                    <th className="px-8 py-5">Cliente / Contacto</th>
+                    <th className="px-8 py-5">Viatura / SKU</th>
                     <th className="px-8 py-5">Stand Alvo</th>
                     <th className="px-8 py-5">Data</th>
                   </tr>
@@ -479,11 +491,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       <td className="px-8 py-6">
                         <p className="font-black text-slate-900">{lead.customer_name}</p>
                         <p className="text-xs text-indigo-600 font-bold">{lead.customer_email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                           <i className="fas fa-phone-alt text-[9px] text-slate-400"></i>
+                           <p className="text-xs text-slate-900 font-black">{lead.customer_phone}</p>
+                        </div>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-700">
-                          {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Removida'}
-                        </p>
+                        <div className="flex flex-col">
+                           <p className="text-sm font-bold text-slate-700">
+                             {lead.cars ? `${lead.cars.brand} ${lead.cars.model}` : 'Viatura Removida'}
+                           </p>
+                           {lead.cars?.reference_code && (
+                             <span className="text-[9px] font-black text-blue-600 uppercase mt-0.5">REF: {lead.cars.reference_code}</span>
+                           )}
+                        </div>
                       </td>
                       <td className="px-8 py-6">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lead.stand_name}</p>
@@ -566,11 +587,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       </td>
                     </tr>
                   ))}
-                  {posts.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum artigo publicado.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>

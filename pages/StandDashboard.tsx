@@ -38,8 +38,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
       const carList = carsRes || [];
       setMyCars(carList);
-
-      // NOTA: A consulta de leads foi removida. Leads são agora EXCLUSIVAS do Admin.
     } catch (e: any) {
       console.error("Erro Dashboard:", e.message);
     } finally {
@@ -153,7 +151,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                    <div className="bg-indigo-600 p-8 rounded-[40px] shadow-xl text-white">
                       <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-1">Conversão de Leads</p>
                       <h3 className="text-2xl font-black">Centralizada</h3>
-                      <p className="text-[10px] text-indigo-100 font-bold mt-2 italic">A gestão de interesses é realizada pela equipa administrativa do Facilitador Car para garantir a qualidade do atendimento.</p>
+                      <p className="text-[10px] text-indigo-100 font-bold mt-2 italic">A gestão de interesses é realizada pela equipa administrativa do Facilitador Car.</p>
                    </div>
                 </div>
 
@@ -163,7 +161,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                       <table className="w-full text-left">
                          <thead>
                             <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                               <th className="pb-4">Viatura</th>
+                               <th className="pb-4">Viatura / REF</th>
                                <th className="pb-4">Visitas Únicas</th>
                                <th className="pb-4 text-right">Nível de Interesse</th>
                             </tr>
@@ -176,7 +174,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                                         <img src={car.image} className="w-12 h-10 rounded-xl object-cover" alt="" />
                                         <div>
                                            <p className="font-black text-slate-900 text-sm">{car.brand} {car.model}</p>
-                                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{car.price.toLocaleString()}€</p>
+                                           <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest">
+                                             {car.reference_code || 'SEM REF'}
+                                           </p>
                                         </div>
                                      </div>
                                   </td>
@@ -224,6 +224,9 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                                  <i className="fas fa-eye text-xs opacity-70"></i>
                                  <span className="text-xs font-black">{car.views || 0}</span>
                               </div>
+                              <div className="bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
+                                 {car.reference_code || 'S/ REF'}
+                              </div>
                            </div>
                         </div>
 
@@ -259,7 +262,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
           <div className="bg-amber-50 p-24 rounded-[60px] text-center border-4 border-dashed border-amber-100">
              <i className="fas fa-user-clock text-4xl text-amber-600 mb-6"></i>
              <h2 className="text-3xl font-black text-amber-900 mb-4">Em Verificação</h2>
-             <p className="text-amber-700 max-w-md mx-auto">A sua conta de stand profissional está a ser analisada. Poderá gerir o seu stock assim que for aprovado pela nossa equipa.</p>
+             <p className="text-amber-700 max-w-md mx-auto">A sua conta de stand profissional está a ser analisada.</p>
           </div>
         )}
       </div>

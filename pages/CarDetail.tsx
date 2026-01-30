@@ -42,9 +42,8 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
         setCar(data);
         setActiveImage(0);
 
-        // Incrementar visualizações (RPC ou Update simples)
+        // Incrementar visualizações
         await supabase.rpc('increment_car_views', { car_id: id }).catch(async () => {
-            // Fallback se a RPC não existir
             await supabase.from('cars').update({ views: (data.views || 0) + 1 }).eq('id', id);
         });
         
@@ -178,8 +177,13 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
 
           <aside className="space-y-8">
             <div className="sticky top-28 space-y-8">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-extrabold text-gray-900">{car.brand} {car.model}</h1>
+              <div className="space-y-3">
+                {car.reference_code && (
+                  <span className="inline-block bg-blue-50 text-blue-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    REF: {car.reference_code}
+                  </span>
+                )}
+                <h1 className="text-4xl font-extrabold text-gray-900 leading-tight">{car.brand} {car.model}</h1>
                 <div className="text-4xl font-black text-blue-600">
                   {formatCurrency(car.price, lang)}
                 </div>

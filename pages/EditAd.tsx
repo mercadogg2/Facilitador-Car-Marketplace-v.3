@@ -62,7 +62,8 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
     location: '',
     description: '',
     subdomain: '',
-    active: true
+    active: true,
+    reference_code: ''
   });
 
   useEffect(() => {
@@ -83,7 +84,8 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
             location: data.location,
             description: data.description,
             subdomain: data.subdomain || '',
-            active: data.active ?? true
+            active: data.active ?? true,
+            reference_code: data.reference_code || ''
           });
           setImages(data.images || [data.image]);
         }
@@ -103,7 +105,6 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
   };
 
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Explicitly cast Array.from result to File[] to avoid 'unknown' type issues in forEach
     const files = Array.from(e.target.files || []) as File[];
     if (images.length + files.length > 10) {
       alert("Máximo 10 fotos.");
@@ -115,7 +116,6 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
         const compressed = await compressImage(reader.result as string);
         setImages(prev => [...prev, compressed]);
       };
-      // Fix: 'file' is now guaranteed to be a File (which is a Blob)
       reader.readAsDataURL(file);
     });
   };
@@ -139,7 +139,8 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
         subdomain: formData.subdomain,
         image: images[0],
         images: images,
-        active: formData.active
+        active: formData.active,
+        reference_code: formData.reference_code
       };
       const { error: updateError } = await supabase.from('cars').update(updateData).eq('id', id);
       if (updateError) throw updateError;
@@ -194,8 +195,15 @@ const EditAd: React.FC<EditAdProps> = ({ lang }) => {
             <input ref={fileInputRef} type="file" multiple onChange={handleFilesChange} className="hidden" />
           </section>
 
-          {/* Dados Técnicos Replicados da Criação */}
+          {/* Dados Técnicos */}
           <section className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-8">
+               <h3 className="text-xl font-black text-gray-900 flex items-center">Dados da Viatura</h3>
+               <div className="w-1/3">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Referência</label>
+                  <input name="reference_code" value={formData.reference_code} onChange={handleChange} className="w-full px-5 py-3 rounded-xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-blue-500 font-black text-xs uppercase" />
+               </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Marca</label>

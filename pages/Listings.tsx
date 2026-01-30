@@ -56,7 +56,11 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
       setLoading(true);
       let query = supabase.from('cars').select('*').eq('active', true);
 
-      if (searchQuery) query = query.or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+      if (searchQuery) {
+        // Busca expandida para incluir o reference_code
+        query = query.or(`brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,reference_code.ilike.%${searchQuery}%`);
+      }
+      
       if (filters.brand) query = query.eq('brand', filters.brand);
       if (filters.category) query = query.eq('category', filters.category);
       if (filters.maxPrice < 1000000) query = query.lte('price', filters.maxPrice);
@@ -118,7 +122,7 @@ const Listings: React.FC<ListingsProps> = ({ lang, onToggleFavorite, favorites }
             <div className="relative">
               <input 
                 type="text" 
-                placeholder={lang === 'pt' ? 'Marca, modelo...' : 'Search...'}
+                placeholder={lang === 'pt' ? 'Marca, modelo ou REF...' : 'Brand, model or REF...'}
                 className="w-full p-4 pl-12 rounded-2xl bg-gray-50 border-none text-sm font-bold outline-none ring-1 ring-gray-100 focus:ring-2 focus:ring-blue-600 transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
