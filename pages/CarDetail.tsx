@@ -31,7 +31,6 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
       setLoading(true);
       window.scrollTo(0, 0);
       
-      // FILTRO CRÍTICO: Só permite visualizar se estiver ativo
       const { data, error } = await supabase
         .from('cars')
         .select('*')
@@ -42,6 +41,12 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
       if (!error && data) {
         setCar(data);
         setActiveImage(0);
+
+        // Incrementar visualizações (RPC ou Update simples)
+        await supabase.rpc('increment_car_views', { car_id: id }).catch(async () => {
+            // Fallback se a RPC não existir
+            await supabase.from('cars').update({ views: (data.views || 0) + 1 }).eq('id', id);
+        });
         
         const { data: related } = await supabase
           .from('cars')

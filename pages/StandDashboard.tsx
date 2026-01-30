@@ -1,8 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Language, Car, Lead, UserRole, ProfileStatus, UserProfile } from '../types';
-import { TRANSLATIONS } from '../constants';
+import { Language, Car, UserRole, UserProfile, Lead } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
@@ -12,11 +11,11 @@ interface DashboardProps {
 
 const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'leads' | 'ads'>('leads');
+  const [activeTab, setActiveTab] = useState<'stock' | 'analytics'>('stock');
   const [adsFilter, setAdsFilter] = useState<'active' | 'hidden'>('active');
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [myLeads, setMyLeads] = useState<Lead[]>([]);
   const [myCars, setMyCars] = useState<Car[]>([]);
+  const [leadsStats, setLeadsStats] = useState<Record<string, number>>({});
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,15 +31,29 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       if (profileData) setProfile(profileData);
 
-      const currentStandName = profileData?.stand_name?.trim() || user.user_metadata?.stand_name?.trim() || 'Sem Nome';
+      const { data: carsRes } = await supabase
+        .from('cars')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      const [leadsRes, carsRes] = await Promise.all([
-        supabase.from('leads').select('*, cars(id, brand, model)').ilike('stand_name', currentStandName).order('created_at', { ascending: false }),
-        supabase.from('cars').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      ]);
+      const carList = carsRes || [];
+      setMyCars(carList);
 
-      setMyLeads(leadsRes.data || []);
-      setMyCars(carsRes.data || []);
+      // Fetch leads count per car (without data, only count for stats)
+      if (carList.length > 0) {
+        const carIds = carList.map(c => c.id);
+        const { data: leadsData } = await supabase
+          .from('leads')
+          .select('car_id')
+          .in('car_id', carIds);
+        
+        const stats: Record<string, number> = {};
+        leadsData?.forEach(l => {
+          stats[l.car_id] = (stats[l.car_id] || 0) + 1;
+        });
+        setLeadsStats(stats);
+      }
     } catch (e: any) {
       console.error("Erro Dashboard:", e.message);
     } finally {
@@ -54,6 +67,13 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       ? myCars.filter(c => (c.active ?? true) === true)
       : myCars.filter(c => (c.active ?? true) === false);
   }, [myCars, adsFilter]);
+
+  const totalMetrics = useMemo(() => {
+    const views = myCars.reduce((acc, c) => acc + (c.views || 0), 0);
+    const leads = Object.values(leadsStats).reduce((acc, val) => acc + val, 0);
+    const conv = views > 0 ? ((leads / views) * 100).toFixed(1) : "0";
+    return { views, leads, conv };
+  }, [myCars, leadsStats]);
 
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
@@ -82,19 +102,11 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
     setIsDeleting(carId);
     try {
-      // 1. LIMPEZA MANUAL DE LEADS (Elimina conflitos de chave estrangeira)
       await supabase.from('leads').delete().eq('car_id', carId);
-
-      // 2. ELIMINAÇÃO DO CARRO
-      const { error } = await supabase
-        .from('cars')
-        .delete()
-        .eq('id', carId);
-
+      const { error } = await supabase.from('cars').delete().eq('id', carId);
       if (error) throw error;
       
       setMyCars(prev => prev.filter(c => c.id !== carId));
-      setMyLeads(prev => prev.filter(l => l.car_id !== carId));
       alert("Viatura removida com sucesso.");
     } catch (err: any) {
       alert("Erro ao remover: " + err.message);
@@ -117,7 +129,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8 pb-20">
         <header className="flex flex-col lg:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 gap-6">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg">
@@ -134,16 +146,89 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             </div>
           </div>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-            <button onClick={() => setActiveTab('leads')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'leads' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Leads ({myLeads.length})</button>
-            <button onClick={() => setActiveTab('ads')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'ads' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Stock ({myCars.length})</button>
+            <button onClick={() => setActiveTab('stock')} className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'stock' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Stock</button>
+            <button onClick={() => setActiveTab('analytics')} className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'analytics' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Analítica</button>
           </div>
-          <Link to="/anunciar" className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2"><i className="fas fa-plus"></i> Novo Anúncio</Link>
+          <Link to="/anunciar" className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2">
+            <i className="fas fa-plus"></i> Novo Anúncio
+          </Link>
         </header>
 
         {isApproved ? (
-          <div className="animate-in fade-in duration-500">
-            {activeTab === 'ads' ? (
+          <div className="animate-in fade-in duration-500 space-y-8">
+            
+            {activeTab === 'analytics' && (
               <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Visitas</p>
+                      <h3 className="text-4xl font-black text-slate-900">{totalMetrics.views.toLocaleString()}</h3>
+                      <div className="mt-4 w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                         <div className="h-full bg-blue-600" style={{width: '100%'}}></div>
+                      </div>
+                   </div>
+                   <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Interesses (Leads)</p>
+                      <h3 className="text-4xl font-black text-indigo-600">{totalMetrics.leads.toLocaleString()}</h3>
+                      <p className="text-[10px] text-indigo-400 font-bold mt-2 italic">* Geridas centralmente pelo Facilitador Car</p>
+                   </div>
+                   <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversão Média</p>
+                      <h3 className="text-4xl font-black text-green-600">{totalMetrics.conv}%</h3>
+                      <p className="text-[10px] text-slate-400 font-bold mt-2">Leads por cada visualização</p>
+                   </div>
+                </div>
+
+                <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8">
+                   <h3 className="text-xl font-black text-slate-900 mb-8">Performance por Viatura</h3>
+                   <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                         <thead>
+                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                               <th className="pb-4">Viatura</th>
+                               <th className="pb-4">Visitas</th>
+                               <th className="pb-4">Interesses</th>
+                               <th className="pb-4 text-right">Popularidade</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-50">
+                            {myCars.sort((a,b) => (b.views || 0) - (a.views || 0)).map(car => (
+                               <tr key={car.id} className="group">
+                                  <td className="py-6">
+                                     <div className="flex items-center gap-4">
+                                        <img src={car.image} className="w-12 h-10 rounded-xl object-cover" alt="" />
+                                        <div>
+                                           <p className="font-black text-slate-900 text-sm">{car.brand} {car.model}</p>
+                                           <p className="text-[9px] text-slate-400 font-bold uppercase">{car.price.toLocaleString()}€</p>
+                                        </div>
+                                     </div>
+                                  </td>
+                                  <td className="py-6 font-bold text-slate-600 text-sm">
+                                     {car.views || 0}
+                                  </td>
+                                  <td className="py-6">
+                                     <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-black">
+                                        {leadsStats[car.id] || 0}
+                                     </span>
+                                  </td>
+                                  <td className="py-6 text-right">
+                                     <div className="inline-flex items-center gap-1">
+                                        {[1,2,3,4,5].map(star => (
+                                           <div key={star} className={`w-2 h-2 rounded-full ${ (car.views || 0) > (star * 100) ? 'bg-amber-400' : 'bg-slate-100' }`}></div>
+                                        ))}
+                                     </div>
+                                  </td>
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'stock' && (
+              <>
                 <div className="flex gap-4 border-b border-slate-100">
                   <button onClick={() => setAdsFilter('active')} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest relative transition-all ${adsFilter === 'active' ? 'text-blue-600' : 'text-slate-400'}`}>
                     Online ({myCars.filter(c => (c.active ?? true)).length})
@@ -160,6 +245,20 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     <div key={car.id} className={`bg-white rounded-[40px] overflow-hidden border border-slate-100 shadow-sm transition-all group ${!(car.active ?? true) ? 'opacity-70' : ''}`}>
                       <div className="relative h-56 bg-slate-100">
                         <img src={car.image} className="w-full h-full object-cover" alt="" />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-6">
+                           <div className="flex gap-4 text-white">
+                              <div className="flex items-center gap-1.5">
+                                 <i className="fas fa-eye text-xs opacity-70"></i>
+                                 <span className="text-xs font-black">{car.views || 0}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                 <i className="fas fa-bolt text-xs text-amber-400"></i>
+                                 <span className="text-xs font-black">{leadsStats[car.id] || 0}</span>
+                              </div>
+                           </div>
+                        </div>
+
                         <div className="absolute top-5 left-5">
                           <button onClick={() => handleToggleActive(car.id, car.active ?? true)} disabled={isToggling === car.id} className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all ${ (car.active ?? true) ? 'bg-green-600 text-white' : 'bg-slate-900 text-white' }`}>
                             {isToggling === car.id ? <i className="fas fa-spinner animate-spin"></i> : (car.active ?? true ? 'Online' : 'Oculto')}
@@ -182,47 +281,17 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                     </div>
                   ))}
                   {filteredMyCars.length === 0 && (
-                    <div className="col-span-full py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">Sem viaturas nesta categoria</div>
+                    <div className="col-span-full py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">Sem viaturas em stock nesta categoria</div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                 {myLeads.length === 0 ? <div className="bg-white p-24 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-gray-400 font-bold">Sem contactos no momento.</div> : 
-                   myLeads.map(lead => (
-                    <div key={lead.id} className={`bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all ${lead.status === 'Contactado' ? 'bg-slate-50/50 grayscale opacity-60' : ''}`}>
-                      <div className="flex flex-col lg:flex-row justify-between gap-8">
-                        <div className="flex gap-8 w-full">
-                          <div className="w-16 h-16 shrink-0 rounded-[25px] flex items-center justify-center bg-blue-50 text-blue-600 shadow-inner">
-                            <i className="fas fa-user"></i>
-                          </div>
-                          <div className="flex-grow">
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h3 className="text-xl font-black text-slate-900">{lead.customer_name}</h3>
-                                <p className="text-sm text-blue-600 font-bold">{lead.customer_phone}</p>
-                              </div>
-                              <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full ${lead.status === 'Contactado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                {lead.status}
-                              </span>
-                            </div>
-                            <div className="bg-slate-50 p-6 rounded-[30px] border border-slate-100">
-                              <p className="text-slate-600 text-sm italic">"{lead.message}"</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                   ))
-                 }
-              </div>
+              </>
             )}
           </div>
         ) : (
           <div className="bg-amber-50 p-24 rounded-[60px] text-center border-4 border-dashed border-amber-100">
              <i className="fas fa-user-clock text-4xl text-amber-600 mb-6"></i>
              <h2 className="text-3xl font-black text-amber-900 mb-4">Em Verificação</h2>
-             <p className="text-amber-700 max-w-md mx-auto">A sua conta de stand profissional está a ser analisada.</p>
+             <p className="text-amber-700 max-w-md mx-auto">A sua conta de stand profissional está a ser analisada. Poderá gerir o seu stock assim que for aprovado pela nossa equipa.</p>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Language, Car, UserProfile, UserRole, ProfileStatus, Lead, BlogPost } from '../types';
+import { Language, Car, UserProfile, UserRole, ProfileStatus, BlogPost } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
 
@@ -193,6 +193,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
     }
   };
 
+  const handleBlogImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editingPost) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setEditingPost({ ...editingPost, image: compressed });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleDeletePost = async (postId: string) => {
     if (!window.confirm("Eliminar este artigo permanentemente?")) return;
     try {
@@ -205,8 +217,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   };
 
   const filteredStands = useMemo(() => 
-    users.filter(u => u.role === UserRole.STAND && (u.stand_name || '').toLowerCase().includes(standSearch.toLowerCase())),
+    users.filter(u => u.role === UserRole.STAND && (u.stand_name || u.full_name || '').toLowerCase().includes(standSearch.toLowerCase())),
     [users, standSearch]
+  );
+
+  const filteredAds = useMemo(() => 
+    ads.filter(a => `${a.brand} ${a.model}`.toLowerCase().includes(adSearch.toLowerCase())),
+    [ads, adSearch]
   );
 
   if (loading) return (
@@ -278,7 +295,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
               <div>
                 <h3 className="text-2xl font-black text-slate-900">Gestão de Parceiros</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Aprovação de novos Stands</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Aprovação de novos utilizadores</p>
               </div>
               <div className="relative">
                 <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
@@ -308,10 +325,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
                            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-indigo-600 font-black overflow-hidden border border-slate-200">
-                              {user.profile_image ? <img src={user.profile_image} className="w-full h-full object-cover" alt="" /> : (user.stand_name?.[0] || 'S')}
+                              {user.profile_image ? <img src={user.profile_image} className="w-full h-full object-cover" alt="" /> : (user.stand_name?.[0] || user.full_name?.[0] || 'S')}
                            </div>
                            <div>
-                              <p className="font-black text-slate-900">{user.stand_name || 'Particular'}</p>
+                              <p className="font-black text-slate-900">{user.stand_name || 'Individual'}</p>
                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{user.full_name}</p>
                            </div>
                         </div>
@@ -361,7 +378,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   ))}
                   {filteredStands.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum stand para aprovação.</td>
+                      <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum utilizador encontrado.</td>
                     </tr>
                   )}
                 </tbody>
@@ -370,11 +387,81 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
           </div>
         )}
 
+        {/* TAB STOCK - GESTÃO DE ANÚNCIOS */}
+        {activeTab === 'ads' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+             <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">Gestão de Stock</h3>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Todos os anúncios da plataforma</p>
+                </div>
+                <div className="relative">
+                  <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                  <input 
+                    type="text" 
+                    placeholder="Pesquisar viatura..." 
+                    className="pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
+                    value={adSearch}
+                    onChange={(e) => setAdSearch(e.target.value)}
+                  />
+                </div>
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                    <tr>
+                      <th className="px-8 py-5">Viatura</th>
+                      <th className="px-8 py-5">Stand</th>
+                      <th className="px-8 py-5">Preço</th>
+                      <th className="px-8 py-5">Estado</th>
+                      <th className="px-8 py-5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredAds.map(car => (
+                      <tr key={car.id} className="hover:bg-slate-50/50">
+                        <td className="px-8 py-6">
+                           <div className="flex items-center gap-4">
+                              <img src={car.image} className="w-16 h-12 rounded-xl object-cover border border-slate-200" alt="" />
+                              <div>
+                                 <p className="font-black text-slate-900">{car.brand} {car.model}</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year} • {car.fuel}</p>
+                              </div>
+                           </div>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className="text-xs font-bold text-indigo-600">{car.stand_name}</span>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className="font-black text-slate-900">{formatCurrency(car.price, lang)}</span>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${car.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {car.active ? 'Ativo' : 'Oculto'}
+                           </span>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                           <button 
+                             onClick={() => handleDeleteCar(car.id)}
+                             className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                           >
+                             <i className="fas fa-trash"></i>
+                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+
         {/* Tab Leads */}
         {activeTab === 'leads' && (
           <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
             <div className="p-8 border-b bg-slate-50/50">
               <h3 className="text-2xl font-black text-slate-900">Gestão de Leads</h3>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Interesses registados pelos clientes</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -382,7 +469,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                   <tr>
                     <th className="px-8 py-5">Cliente</th>
                     <th className="px-8 py-5">Viatura</th>
-                    <th className="px-8 py-5">Stand</th>
+                    <th className="px-8 py-5">Stand Alvo</th>
                     <th className="px-8 py-5">Data</th>
                   </tr>
                 </thead>
@@ -399,13 +486,91 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
                         </p>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="text-[10px] font-black text-slate-400 uppercase">{lead.stand_name}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lead.stand_name}</p>
                       </td>
                       <td className="px-8 py-6 text-xs text-slate-400 font-medium">
                         {new Date(lead.created_at).toLocaleDateString()}
                       </td>
                     </tr>
                   ))}
+                  {leads.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhuma lead registada.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB BLOG - LISTAGEM E EDITOR */}
+        {activeTab === 'blog' && (
+          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+            <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Gestão do Blog</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Artigos e Dicas Facilitador</p>
+              </div>
+              <button 
+                onClick={() => handleOpenBlogModal()}
+                className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-3 shadow-xl shadow-indigo-100"
+              >
+                <i className="fas fa-plus"></i>
+                Novo Artigo
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase font-black">
+                  <tr>
+                    <th className="px-8 py-5">Artigo</th>
+                    <th className="px-8 py-5">Data</th>
+                    <th className="px-8 py-5">Autor</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {posts.map(post => (
+                    <tr key={post.id} className="hover:bg-slate-50/50">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                           <img src={post.image} className="w-20 h-14 rounded-xl object-cover border border-slate-200" alt="" />
+                           <div className="max-w-xs">
+                              <p className="font-black text-slate-900 truncate">{post.title}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{post.excerpt}</p>
+                           </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-sm font-bold text-slate-600">
+                        {new Date(post.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-8 py-6 text-xs text-indigo-600 font-black">
+                        {post.author}
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleOpenBlogModal(post)}
+                            className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePost(post.id)}
+                            className="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {posts.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-12 text-center text-slate-400 font-bold uppercase text-xs">Nenhum artigo publicado.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -448,6 +613,109 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
         )}
 
       </div>
+
+      {/* MODAL DO EDITOR DE BLOG */}
+      {isBlogModalOpen && editingPost && (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[50px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-300">
+            <div className="bg-indigo-600 p-8 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-2xl font-black">{editingPost.id ? 'Editar Artigo' : 'Novo Artigo'}</h3>
+                <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest mt-1">Editor Facilitador Car</p>
+              </div>
+              <button onClick={() => setIsBlogModalOpen(false)} className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all">
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div className="p-10 overflow-y-auto space-y-8">
+              <form id="blogForm" onSubmit={handleSaveBlogPost} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Título do Artigo</label>
+                  <input 
+                    required 
+                    type="text" 
+                    value={editingPost.title} 
+                    onChange={(e) => setEditingPost({...editingPost, title: e.target.value})}
+                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-black text-lg" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Imagem Principal</label>
+                  <div className="relative group aspect-video rounded-3xl overflow-hidden bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center">
+                     {editingPost.image ? (
+                       <>
+                         <img src={editingPost.image} className="w-full h-full object-cover" alt="" />
+                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-white text-slate-900 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest">Alterar</button>
+                         </div>
+                       </>
+                     ) : (
+                       <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 text-slate-400">
+                          <i className="fas fa-image text-3xl"></i>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Upload Imagem</span>
+                       </button>
+                     )}
+                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleBlogImageChange} />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Excerto (Resumo)</label>
+                    <textarea 
+                      required 
+                      rows={4} 
+                      value={editingPost.excerpt}
+                      onChange={(e) => setEditingPost({...editingPost, excerpt: e.target.value})}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-sm resize-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Data</label>
+                       <input type="date" value={editingPost.date} onChange={(e) => setEditingPost({...editingPost, date: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-none text-xs font-bold" />
+                     </div>
+                     <div>
+                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Leitura</label>
+                       <input type="text" value={editingPost.reading_time} onChange={(e) => setEditingPost({...editingPost, reading_time: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-none text-xs font-bold" />
+                     </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Conteúdo do Artigo</label>
+                  <textarea 
+                    required 
+                    rows={12} 
+                    value={editingPost.content}
+                    onChange={(e) => setEditingPost({...editingPost, content: e.target.value})}
+                    className="w-full px-8 py-6 rounded-[40px] bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-base leading-relaxed"
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="p-8 border-t bg-slate-50 flex justify-end gap-4 shrink-0">
+              <button 
+                onClick={() => setIsBlogModalOpen(false)}
+                className="px-10 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600"
+              >
+                Cancelar
+              </button>
+              <button 
+                form="blogForm"
+                type="submit"
+                disabled={refreshing}
+                className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
+              >
+                {refreshing ? <i className="fas fa-spinner animate-spin"></i> : 'Publicar Artigo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {refreshing && (
         <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center text-white">

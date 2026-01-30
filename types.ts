@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
   VISITOR = 'visitor',
   STAND = 'stand',
@@ -14,14 +13,14 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   stand_name?: string;
-  slug?: string; // Campo para URL única do stand
+  slug?: string;
   description?: string;
   created_at: string;
   last_sign_in?: string;
   phone?: string;
   status: ProfileStatus;
   location?: string;
-  profile_image?: string; // Novo campo para foto de perfil ou logotipo
+  profile_image?: string;
 }
 
 export interface Car {
@@ -37,15 +36,16 @@ export interface Car {
   images?: string[];
   description: string;
   stand_name: string;
-  stand_slug?: string; // Link direto para o stand
+  stand_slug?: string;
   verified: boolean;
   location: string;
   category: 'SUV' | 'Sedan' | 'Coupe' | 'Hatchback' | 'Utilitário';
   subdomain?: string;
   created_at?: string;
   user_id?: string;
-  active?: boolean; // Novo campo para ativar/desativar anúncio
-  is_featured?: boolean; // Novo campo para anúncios em destaque
+  active?: boolean;
+  is_featured?: boolean;
+  views?: number; // Novo campo para análise
 }
 
 export interface Lead {
@@ -54,7 +54,6 @@ export interface Lead {
   customer_email: string;
   customer_phone: string;
   car_id: string;
-  // Added stand_name to match database schema and fix TypeScript error in AdminDashboard
   stand_name?: string;
   message: string;
   status: 'Pendente' | 'Contactado' | 'Vendido' | 'Cancelado';

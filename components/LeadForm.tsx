@@ -19,7 +19,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
     email: '',
     phone: '',
     contactPreference: 'WhatsApp',
-    paymentMethod: 'Pronto Pagamento',
+    paymentMethod: 'A pronto',
     message: lang === 'pt' 
       ? `Olá! Estou interessado no ${car.brand} ${car.model} (${car.year}). Poderia dar-me mais informações?`
       : `Hi! I'm interested in the ${car.brand} ${car.model} (${car.year}). Could you provide more information?`
@@ -58,7 +58,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
       }
 
       setIsSuccess(true);
-      setTimeout(onClose, 4000);
+      setTimeout(onClose, 5000);
 
     } catch (err: any) {
       setErrorDetails(err.message || "Erro de conexão.");
@@ -74,14 +74,18 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
           <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner animate-pulse">
             <i className="fas fa-check"></i>
           </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Enviado!</h2>
-          <p className="text-gray-500 font-medium text-sm mb-8">O stand recebeu o seu contacto.</p>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">{lang === 'pt' ? 'Recebido!' : 'Received!'}</h2>
+          <p className="text-gray-500 font-medium text-sm mb-8">
+            {lang === 'pt' 
+              ? 'A equipa Facilitador Car recebeu o seu contacto e irá processá-lo brevemente.' 
+              : 'The Facilitador Car team has received your contact and will process it shortly.'}
+          </p>
           
           <button 
             onClick={onClose}
             className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl"
           >
-            Fechar
+            {lang === 'pt' ? 'Fechar' : 'Close'}
           </button>
         </div>
       </div>
@@ -94,7 +98,7 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
         <div className="bg-blue-600 p-8 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-black text-white">{lang === 'pt' ? 'Demonstrar Interesse' : 'Show Interest'}</h2>
-            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mt-1">Destinatário: {car.stand_name}</p>
+            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mt-1">Interesse via Facilitador Car</p>
           </div>
           <button 
             onClick={onClose} 
@@ -140,8 +144,8 @@ export default function LeadForm({ car, lang, onClose }: LeadFormProps) {
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Pagamento</label>
               <select value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 font-bold text-xs">
-                <option value="Pronto Pagamento">Pronto</option>
-                <option value="Financiamento">Crédito</option>
+                <option value="A pronto">A pronto</option>
+                <option value="Financiamento">Financiamento</option>
               </select>
             </div>
           </div>
