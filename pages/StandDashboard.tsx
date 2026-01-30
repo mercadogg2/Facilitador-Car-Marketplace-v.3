@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Language, Car, UserRole, UserProfile, Lead } from '../types';
+import { Language, Car, UserRole, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
@@ -15,7 +15,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   const [adsFilter, setAdsFilter] = useState<'active' | 'hidden'>('active');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [myCars, setMyCars] = useState<Car[]>([]);
-  const [leadsStats, setLeadsStats] = useState<Record<string, number>>({});
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,20 +39,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       const carList = carsRes || [];
       setMyCars(carList);
 
-      // Fetch leads count per car (without data, only count for stats)
-      if (carList.length > 0) {
-        const carIds = carList.map(c => c.id);
-        const { data: leadsData } = await supabase
-          .from('leads')
-          .select('car_id')
-          .in('car_id', carIds);
-        
-        const stats: Record<string, number> = {};
-        leadsData?.forEach(l => {
-          stats[l.car_id] = (stats[l.car_id] || 0) + 1;
-        });
-        setLeadsStats(stats);
-      }
+      // NOTA: A consulta de leads foi removida. Leads são agora EXCLUSIVAS do Admin.
     } catch (e: any) {
       console.error("Erro Dashboard:", e.message);
     } finally {
@@ -70,10 +56,8 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
 
   const totalMetrics = useMemo(() => {
     const views = myCars.reduce((acc, c) => acc + (c.views || 0), 0);
-    const leads = Object.values(leadsStats).reduce((acc, val) => acc + val, 0);
-    const conv = views > 0 ? ((leads / views) * 100).toFixed(1) : "0";
-    return { views, leads, conv };
-  }, [myCars, leadsStats]);
+    return { views };
+  }, [myCars]);
 
   const handleToggleActive = async (carId: string, currentActive: boolean) => {
     setIsToggling(carId);
@@ -98,11 +82,10 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
   };
 
   const handleDeleteCar = async (carId: string) => {
-    if (!window.confirm("ELIMINAR DEFINITIVAMENTE?\nA viatura e todos os contactos serão apagados.")) return;
+    if (!window.confirm("ELIMINAR DEFINITIVAMENTE?\nA viatura será removida do marketplace.")) return;
 
     setIsDeleting(carId);
     try {
-      await supabase.from('leads').delete().eq('car_id', carId);
       const { error } = await supabase.from('cars').delete().eq('id', carId);
       if (error) throw error;
       
@@ -159,36 +142,30 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
             
             {activeTab === 'analytics' && (
               <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Visitas</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Visitas (Cliques)</p>
                       <h3 className="text-4xl font-black text-slate-900">{totalMetrics.views.toLocaleString()}</h3>
                       <div className="mt-4 w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                          <div className="h-full bg-blue-600" style={{width: '100%'}}></div>
                       </div>
                    </div>
-                   <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Interesses (Leads)</p>
-                      <h3 className="text-4xl font-black text-indigo-600">{totalMetrics.leads.toLocaleString()}</h3>
-                      <p className="text-[10px] text-indigo-400 font-bold mt-2 italic">* Geridas centralmente pelo Facilitador Car</p>
-                   </div>
-                   <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversão Média</p>
-                      <h3 className="text-4xl font-black text-green-600">{totalMetrics.conv}%</h3>
-                      <p className="text-[10px] text-slate-400 font-bold mt-2">Leads por cada visualização</p>
+                   <div className="bg-indigo-600 p-8 rounded-[40px] shadow-xl text-white">
+                      <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-1">Conversão de Leads</p>
+                      <h3 className="text-2xl font-black">Centralizada</h3>
+                      <p className="text-[10px] text-indigo-100 font-bold mt-2 italic">A gestão de interesses é realizada pela equipa administrativa do Facilitador Car para garantir a qualidade do atendimento.</p>
                    </div>
                 </div>
 
                 <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8">
-                   <h3 className="text-xl font-black text-slate-900 mb-8">Performance por Viatura</h3>
+                   <h3 className="text-xl font-black text-slate-900 mb-8">Popularidade por Viatura</h3>
                    <div className="overflow-x-auto">
                       <table className="w-full text-left">
                          <thead>
                             <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                                <th className="pb-4">Viatura</th>
-                               <th className="pb-4">Visitas</th>
-                               <th className="pb-4">Interesses</th>
-                               <th className="pb-4 text-right">Popularidade</th>
+                               <th className="pb-4">Visitas Únicas</th>
+                               <th className="pb-4 text-right">Nível de Interesse</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-slate-50">
@@ -199,22 +176,17 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                                         <img src={car.image} className="w-12 h-10 rounded-xl object-cover" alt="" />
                                         <div>
                                            <p className="font-black text-slate-900 text-sm">{car.brand} {car.model}</p>
-                                           <p className="text-[9px] text-slate-400 font-bold uppercase">{car.price.toLocaleString()}€</p>
+                                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{car.price.toLocaleString()}€</p>
                                         </div>
                                      </div>
                                   </td>
                                   <td className="py-6 font-bold text-slate-600 text-sm">
                                      {car.views || 0}
                                   </td>
-                                  <td className="py-6">
-                                     <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-black">
-                                        {leadsStats[car.id] || 0}
-                                     </span>
-                                  </td>
                                   <td className="py-6 text-right">
                                      <div className="inline-flex items-center gap-1">
                                         {[1,2,3,4,5].map(star => (
-                                           <div key={star} className={`w-2 h-2 rounded-full ${ (car.views || 0) > (star * 100) ? 'bg-amber-400' : 'bg-slate-100' }`}></div>
+                                           <div key={star} className={`w-2.5 h-2.5 rounded-full ${ (car.views || 0) > (star * 50) ? 'bg-amber-400' : 'bg-slate-100' }`}></div>
                                         ))}
                                      </div>
                                   </td>
@@ -252,10 +224,6 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                                  <i className="fas fa-eye text-xs opacity-70"></i>
                                  <span className="text-xs font-black">{car.views || 0}</span>
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                 <i className="fas fa-bolt text-xs text-amber-400"></i>
-                                 <span className="text-xs font-black">{leadsStats[car.id] || 0}</span>
-                              </div>
                            </div>
                         </div>
 
@@ -276,7 +244,7 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
                           <h4 className="font-black text-slate-900 text-lg truncate mr-4">{car.brand} {car.model}</h4>
                           <span className="font-black text-blue-600">{(car.price || 0).toLocaleString()}€</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{car.year} • {car.mileage.toLocaleString()} KM</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{car.year} • {car.mileage.toLocaleString()} KM</p>
                       </div>
                     </div>
                   ))}
