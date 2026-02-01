@@ -244,13 +244,19 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Nome Completo / Stand</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+                    {userRole === UserRole.STAND ? 'Nome do Stand' : 'Nome Completo'}
+                  </label>
                   <input required value={formData.stand_name || formData.name} onChange={(e) => setFormData({...formData, stand_name: e.target.value, name: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição (Bio)</label>
-                  <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={4} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" />
-                </div>
+                
+                {userRole === UserRole.STAND && (
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição (Bio)</label>
+                    <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={4} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" />
+                  </div>
+                )}
+                
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade</label>
                   <input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
