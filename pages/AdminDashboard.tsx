@@ -297,6 +297,7 @@ NOTIFY pgrst, 'reload schema';`;
                       <th className="px-8 py-4">Cliente</th>
                       <th className="px-8 py-4">Viatura / Stand</th>
                       <th className="px-8 py-4">Email / SKU</th>
+                      <th className="px-8 py-4">Pref. Contacto</th>
                       <th className="px-8 py-4">Pagamento</th>
                       <th className="px-8 py-4">Data</th>
                     </tr>
@@ -316,6 +317,11 @@ NOTIFY pgrst, 'reload schema';`;
                            <p className="text-sm font-bold text-slate-600 mb-1">{lead.customer_email}</p>
                            <span className="bg-slate-100 text-slate-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">
                               {lead.cars?.reference_code || 'S/ SKU'}
+                           </span>
+                        </td>
+                        <td className="px-8 py-6">
+                           <span className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-purple-100">
+                             {lead.message?.match(/(?:Contacto|Contact):\s*(.*?)(?:\n|$)/i)?.[1] || 'N/A'}
                            </span>
                         </td>
                         <td className="px-8 py-6">
