@@ -87,7 +87,6 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
         setUserRole(session.user.user_metadata?.role || UserRole.VISITOR);
 
-        // Busca defensiva de colunas
         const { data: profile, error: fetchError } = await supabase
           .from('profiles')
           .select('*')
@@ -143,30 +142,21 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         updated_at: new Date().toISOString()
       };
 
-      // TENTATIVA 1: Upsert completo
       const { error: profileError } = await supabase.from('profiles').upsert(payload);
 
       if (profileError) {
-        console.warn("Falha no salvamento completo, tentando modo de compatibilidade...", profileError.message);
-        
-        // TENTATIVA 2: Se falhar por causa de colunas novas (description ou updated_at), removemos e tentamos o básico
+        console.warn("Modo de compatibilidade ativado.", profileError.message);
         const { description, profile_image, updated_at, ...safePayload } = payload;
         const { error: secondTryError } = await supabase.from('profiles').upsert(safePayload);
-        
         if (secondTryError) throw secondTryError;
-
-        setError('⚠️ O perfil foi guardado parcialmente. Algumas funcionalidades novas (Descrição/Data) requerem que execute o script SQL de reparação no painel administrativo.');
-        setIsSuccess(true);
-      } else {
-        setIsSuccess(true);
+        setError('Aviso: Alguns campos novos (Bio/Logo) podem não ter sido salvos se o banco de dados não estiver atualizado.');
       }
-
-      if (isSuccess || !profileError) {
-        setTimeout(() => {
-          if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
-          else navigate('/cliente');
-        }, 3500);
-      }
+      
+      setIsSuccess(true);
+      setTimeout(() => {
+        if (userRole === UserRole.STAND || userRole === UserRole.ADMIN) navigate('/dashboard');
+        else navigate('/cliente');
+      }, 2000);
 
     } catch (err: any) {
       setError(err.message || "Erro ao guardar dados.");
@@ -200,8 +190,10 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
       <div className="max-w-3xl mx-auto">
         <header className="mb-12 flex justify-between items-end">
           <div>
-            <h1 className="text-4xl font-black text-gray-900 mb-2">Definições de Perfil</h1>
-            <p className="text-gray-500 font-medium">Mantenha os seus dados atualizados.</p>
+            <h1 className="text-4xl font-black text-gray-900 mb-2">
+              {userRole === UserRole.STAND ? 'Perfil do Stand' : 'Meu Perfil'}
+            </h1>
+            <p className="text-gray-500 font-medium">Personalize a sua presença na plataforma.</p>
           </div>
           <button onClick={() => navigate(-1)} className="text-gray-400 font-bold hover:text-blue-600 transition-colors">
             <i className="fas fa-arrow-left mr-2"></i>{tc.back}
@@ -211,24 +203,28 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         {isSuccess && !error ? (
           <div className="bg-white p-12 rounded-[40px] shadow-2xl text-center animate-in zoom-in">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl"><i className="fas fa-check"></i></div>
-            <h2 className="text-2xl font-black text-gray-900">Perfil Atualizado!</h2>
-            <p className="text-gray-500 mt-2">Redirecionando para o seu painel...</p>
+            <h2 className="text-2xl font-black text-gray-900">Guardado com Sucesso!</h2>
+            <p className="text-gray-500 mt-2">A atualizar informações...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
-              <div className="p-8 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm whitespace-pre-line animate-in shake">
-                <div className="flex items-center gap-3 mb-2 text-amber-600 font-black uppercase tracking-widest text-[10px]">
-                  <i className="fas fa-database"></i> Problema de Sincronização
-                </div>
-                {error}
+              <div className="p-6 bg-amber-50 text-amber-900 rounded-[30px] font-medium text-sm border border-amber-200 shadow-sm whitespace-pre-line animate-in shake">
+                <i className="fas fa-exclamation-triangle mr-2"></i> {error}
               </div>
             )}
 
-            <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100">
-              <div className="flex flex-col items-center mb-10 text-center">
+            <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                 <i className={`fas ${userRole === UserRole.STAND ? 'fa-store' : 'fa-user'} text-9xl text-blue-600`}></i>
+              </div>
+
+              <div className="flex flex-col items-center mb-12 text-center relative z-10">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+                   {userRole === UserRole.STAND ? 'Logotipo Oficial' : 'Foto de Perfil'}
+                </p>
                 <div className="relative group">
-                  <div className="w-44 h-44 rounded-[45px] overflow-hidden bg-gray-50 border-4 border-white shadow-2xl flex items-center justify-center text-blue-600 font-black text-6xl">
+                  <div className="w-44 h-44 rounded-[45px] overflow-hidden bg-gray-50 border-8 border-gray-50 shadow-2xl flex items-center justify-center text-blue-600 font-black text-6xl">
                     {formData.profile_image ? (
                       <img src={formData.profile_image} className="w-full h-full object-cover" alt="Logo" />
                     ) : (
@@ -240,37 +236,59 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
                   </button>
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                <p className="text-[10px] text-gray-400 mt-4 font-medium max-w-xs">
+                   {userRole === UserRole.STAND ? 'Recomendado: Imagem quadrada (PNG/JPG) com fundo transparente ou branco.' : 'Carregue uma foto para personalizar a sua conta.'}
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
-                    {userRole === UserRole.STAND ? 'Nome do Stand' : 'Nome Completo'}
+                    {userRole === UserRole.STAND ? 'Nome do Stand (Público)' : 'Nome Completo'}
                   </label>
-                  <input required value={formData.stand_name || formData.name} onChange={(e) => setFormData({...formData, stand_name: e.target.value, name: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  <div className="relative">
+                     <i className="fas fa-signature absolute left-5 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                     <input required value={formData.stand_name || formData.name} onChange={(e) => setFormData({...formData, stand_name: e.target.value, name: e.target.value})} className="w-full pl-12 pr-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
                 </div>
                 
                 {userRole === UserRole.STAND && (
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Descrição (Bio)</label>
-                    <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={4} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none" />
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">BIO / Sobre Nós</label>
+                    <div className="relative">
+                       <i className="fas fa-quote-left absolute left-5 top-6 text-gray-300"></i>
+                       <textarea 
+                         value={formData.description} 
+                         onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                         rows={6} 
+                         placeholder="Conte a história do seu stand, especialidades, anos de mercado e valores..."
+                         className="w-full pl-12 pr-6 py-5 rounded-3xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none leading-relaxed" 
+                       />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 font-bold text-right uppercase tracking-widest">Esta descrição aparecerá na página pública do seu stand.</p>
                   </div>
                 )}
                 
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade</label>
-                  <input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Cidade / Localização</label>
+                  <div className="relative">
+                     <i className="fas fa-map-marker-alt absolute left-5 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                     <input value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full pl-12 pr-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Telemóvel</label>
-                  <input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Telemóvel (WhatsApp)</label>
+                  <div className="relative">
+                     <i className="fas fa-phone absolute left-5 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                     <input value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full pl-12 pr-6 py-5 rounded-2xl bg-gray-50 border border-transparent outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                  </div>
                 </div>
               </div>
             </section>
 
-            <button type="submit" disabled={isSubmitting} className="w-full py-7 bg-blue-600 text-white rounded-[35px] font-black text-2xl shadow-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting} className="w-full py-7 bg-blue-600 text-white rounded-[35px] font-black text-2xl shadow-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-50 active:scale-95">
               {isSubmitting ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-save"></i>}
-              {isSubmitting ? 'A Sincronizar...' : 'Guardar Alterações'}
+              {isSubmitting ? 'A Sincronizar...' : 'Guardar Definições'}
             </button>
           </form>
         )}

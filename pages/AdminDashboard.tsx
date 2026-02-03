@@ -355,7 +355,7 @@ NOTIFY pgrst, 'reload schema';`;
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <tr>
-                      <th className="px-8 py-4">Stand / Nome</th>
+                      <th className="px-8 py-4">Stand / Contactos</th>
                       <th className="px-8 py-4">Estado</th>
                       <th className="px-8 py-4 text-right">Ações</th>
                     </tr>
@@ -364,8 +364,23 @@ NOTIFY pgrst, 'reload schema';`;
                     {filteredStands.map(user => (
                       <tr key={user.id} className="hover:bg-slate-50/50">
                         <td className="px-8 py-6">
-                           <p className="font-black text-slate-900">{user.stand_name || 'Individual'}</p>
-                           <p className="text-xs text-slate-400">{user.full_name} • {user.email}</p>
+                           <div className="flex flex-col">
+                               <span className="font-black text-slate-900 text-sm">{user.stand_name || 'Particular'}</span>
+                               <span className="text-xs text-slate-500 font-medium mb-2">{user.full_name}</span>
+                               
+                               <div className="flex flex-col gap-1.5 mt-1">
+                                   <div className="flex items-center gap-2 bg-slate-50 w-fit px-2 py-1 rounded-md border border-slate-100">
+                                       <i className="fas fa-envelope text-slate-400 text-[10px]"></i>
+                                       <span className="text-[10px] font-bold text-slate-600">{user.email}</span>
+                                   </div>
+                                   {user.phone && (
+                                       <div className="flex items-center gap-2 bg-green-50 w-fit px-2 py-1 rounded-md border border-green-100">
+                                           <i className="fab fa-whatsapp text-green-600 text-[10px]"></i>
+                                           <span className="text-[10px] font-bold text-green-700">{user.phone}</span>
+                                       </div>
+                                   )}
+                               </div>
+                           </div>
                         </td>
                         <td className="px-8 py-6">
                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${

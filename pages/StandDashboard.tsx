@@ -113,12 +113,20 @@ const StandDashboard: React.FC<DashboardProps> = ({ lang, role }) => {
       <div className="max-w-7xl mx-auto space-y-8 pb-20">
         <header className="flex flex-col lg:flex-row justify-between items-center bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 gap-6">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg">
+            <div className="w-16 h-16 bg-blue-600 rounded-[20px] flex items-center justify-center text-white text-2xl font-black overflow-hidden shadow-lg ring-4 ring-blue-50">
               {profile?.profile_image ? <img src={profile.profile_image} className="w-full h-full object-cover" alt="" /> : (profile?.stand_name?.[0] || 'S')}
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-900">{profile?.stand_name || 'Meu Stand'}</h1>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-black text-slate-900 leading-tight">{profile?.stand_name || 'Meu Stand'}</h1>
+                <Link 
+                  to="/cliente/editar" 
+                  className="px-3 py-1 bg-slate-100 rounded-lg text-slate-500 hover:bg-blue-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
+                >
+                  <i className="fas fa-cog"></i> Configurar Perfil
+                </Link>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
                 <span className={`w-2 h-2 rounded-full ${isApproved ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></span>
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
                   {isApproved ? 'Stand Verificado' : 'Aguardando Aprovação'}
