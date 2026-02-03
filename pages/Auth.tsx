@@ -38,6 +38,16 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
     name: '', standName: '', email: '', password: '',
   });
 
+  const handleWhatsAppRecovery = () => {
+    const emailPart = formData.email ? ` associada ao email: ${formData.email}` : '';
+    const message = lang === 'pt' 
+      ? `Olá Suporte Facilitador Car, perdi o acesso à minha conta${emailPart}. Gostaria de solicitar a recuperação manual da minha senha.` 
+      : `Hello Facilitador Car Support, I lost access to my account${emailPart}. I would like to request a manual password reset.`;
+    
+    // Número de suporte definido no sistema (Ex: 351910000000)
+    window.open(`https://wa.me/351910000000?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -192,7 +202,13 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
             <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="text-sm font-bold text-blue-600">{mode === 'login' ? 'Criar nova conta' : 'Já tenho conta'}</button>
             {mode === 'login' && (
               <div className="flex flex-col gap-2 mt-2">
-                <Link to="/esqueci-senha" title="Esqueci senha" className="text-xs text-gray-400">Recuperar acesso</Link>
+                <button 
+                  type="button"
+                  onClick={handleWhatsAppRecovery}
+                  className="text-xs text-gray-400 hover:text-green-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <i className="fab fa-whatsapp"></i> Recuperar acesso (WhatsApp)
+                </button>
                 <div className="pt-4 mt-2 border-t border-gray-50">
                   <Link to="/admin/login" className="text-[10px] font-black uppercase tracking-widest text-gray-300 hover:text-indigo-500 transition-colors">
                     Acesso Administrativo
