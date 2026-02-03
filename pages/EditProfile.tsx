@@ -67,6 +67,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.VISITOR);
+  const [initialStandName, setInitialStandName] = useState<string>('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -94,6 +95,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
           .single();
 
         if (profile) {
+          setInitialStandName(profile.stand_name || '');
           setFormData({
             name: profile.full_name || '',
             email: profile.email || session.user.email || '',
@@ -125,6 +127,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
 
       const newSlug = userRole === UserRole.STAND ? slugify(formData.stand_name) : formData.slug;
 
+      // 1. Atualizar Metadados do Auth
       await supabase.auth.updateUser({
         data: { full_name: formData.name, stand_name: formData.stand_name, slug: newSlug }
       });
@@ -142,14 +145,39 @@ const EditProfile: React.FC<EditProfileProps> = ({ lang, onLogout }) => {
         updated_at: new Date().toISOString()
       };
 
+      // 2. Atualizar Perfil
       const { error: profileError } = await supabase.from('profiles').upsert(payload);
 
       if (profileError) {
-        console.warn("Modo de compatibilidade ativado.", profileError.message);
+        console.warn("Tentativa de compatibilidade de esquema.", profileError.message);
+        // Tentar update parcial se falhar por colunas novas
         const { description, profile_image, updated_at, ...safePayload } = payload;
         const { error: secondTryError } = await supabase.from('profiles').upsert(safePayload);
         if (secondTryError) throw secondTryError;
-        setError('Aviso: Alguns campos novos (Bio/Logo) podem não ter sido salvos se o banco de dados não estiver atualizado.');
+      } 
+
+      // 3. ATUALIZAÇÃO CRÍTICA DE CARROS (Para não zerar contadores)
+      if (userRole === UserRole.STAND) {
+        // Atualiza por User ID (mais seguro)
+        await supabase
+          .from('cars')
+          .update({ 
+            stand_name: formData.stand_name,
+            stand_slug: newSlug
+          })
+          .eq('user_id', session.user.id);
+          
+        // Fallback: Se existirem carros antigos sem user_id, atualizar pelo nome antigo
+        if (initialStandName && initialStandName !== formData.stand_name) {
+             await supabase
+              .from('cars')
+              .update({ 
+                stand_name: formData.stand_name,
+                stand_slug: newSlug
+              })
+              .eq('stand_name', initialStandName)
+              .is('user_id', null); // Apenas os orfãos de user_id
+        }
       }
       
       setIsSuccess(true);

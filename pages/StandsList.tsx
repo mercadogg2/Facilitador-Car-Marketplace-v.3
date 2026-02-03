@@ -29,7 +29,10 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
   const [stands, setStands] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  
+  // Contadores por ID (mais seguro) e por Nome (fallback)
+  const [countsById, setCountsById] = useState<Record<string, number>>({});
+  const [countsByName, setCountsByName] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,17 +49,29 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
         if (!profileError && profiles) {
           setStands(profiles);
 
+          // Buscar user_id para contagem precisa
           const { data: carData } = await supabase
             .from('cars')
-            .select('stand_name')
+            .select('stand_name, user_id')
             .eq('active', true);
           
           if (carData) {
-            const carCounts: Record<string, number> = {};
+            const byId: Record<string, number> = {};
+            const byName: Record<string, number> = {};
+            
             carData.forEach(car => {
-              carCounts[car.stand_name] = (carCounts[car.stand_name] || 0) + 1;
+              // Contagem primária por ID (resistente a mudança de nome)
+              if (car.user_id) {
+                byId[car.user_id] = (byId[car.user_id] || 0) + 1;
+              }
+              // Contagem secundária por nome (para legado)
+              if (car.stand_name) {
+                byName[car.stand_name] = (byName[car.stand_name] || 0) + 1;
+              }
             });
-            setCounts(carCounts);
+            
+            setCountsById(byId);
+            setCountsByName(byName);
           }
         }
       } catch (err) {
@@ -114,6 +129,10 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
             {filteredStands.map(stand => {
               const standUrlSlug = stand.slug || slugify(stand.stand_name || '');
               const joinYear = new Date(stand.created_at).getFullYear();
+              
+              // Lógica robusta de contagem: Tenta pelo ID, se falhar tenta pelo nome
+              const adCount = countsById[stand.id] || countsByName[stand.stand_name || ''] || 0;
+
               return (
                 <Link 
                   key={stand.id} 
@@ -147,7 +166,7 @@ const StandsList: React.FC<StandsListProps> = ({ lang }) => {
                         {tc.found}
                       </p>
                       <p className="text-xl font-black text-gray-900">
-                        {counts[stand.stand_name || ''] || 0}
+                        {adCount}
                       </p>
                     </div>
                     <div className="bg-gray-50 p-6 rounded-[30px] border border-gray-100">
