@@ -37,21 +37,22 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
           .eq('slug', slug)
           .single();
         
-        if (profileError || !profileData) {
-          // Fallback: buscar pelo nome formatado
+        let targetProfile = profileData;
+
+        if (profileError || !targetProfile) {
+          // Fallback: buscar pelo nome formatado (caso antigo)
           const { data: fallbackData } = await supabase
             .from('profiles')
             .select('*')
             .ilike('stand_name', slug.replace(/-/g, ' '))
             .single();
-          
-          if (fallbackData) {
-            setStandProfile(fallbackData);
-            await fetchCars(fallbackData.stand_name || '');
-          }
-        } else {
-          setStandProfile(profileData);
-          await fetchCars(profileData.stand_name || '');
+          targetProfile = fallbackData;
+        }
+
+        if (targetProfile) {
+          setStandProfile(targetProfile);
+          // Passamos o ID e o Nome para buscar os carros
+          await fetchCars(targetProfile.id, targetProfile.stand_name || '');
         }
       } catch (err) {
         console.error("Erro ao buscar stand:", err);
@@ -60,13 +61,34 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
       }
     };
 
-    const fetchCars = async (name: string) => {
-      const { data: carsData } = await supabase
-        .from('cars')
-        .select('*')
-        .eq('stand_name', name)
-        .eq('active', true);
-      if (carsData) setCars(carsData);
+    // Função de busca híbrida robusta
+    const fetchCars = async (userId: string, standName: string) => {
+      try {
+        // 1. Tenta buscar pelo ID do Utilizador (Mais seguro e resistente a mudanças de nome)
+        const { data: carsById } = await supabase
+          .from('cars')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('active', true);
+
+        if (carsById && carsById.length > 0) {
+          setCars(carsById);
+          return;
+        }
+
+        // 2. Fallback: Se não encontrou por ID (carros antigos), busca pelo Nome
+        console.warn("Buscando por nome (fallback legado)...");
+        const { data: carsByName } = await supabase
+          .from('cars')
+          .select('*')
+          .eq('stand_name', standName)
+          .eq('active', true);
+        
+        if (carsByName) setCars(carsByName);
+        
+      } catch (e) {
+        console.error("Erro ao carregar stock:", e);
+      }
     };
 
     fetchStandData();
