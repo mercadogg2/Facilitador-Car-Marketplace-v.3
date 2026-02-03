@@ -40,9 +40,24 @@ const ScrollToTop = () => {
 const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('pt');
   const [role, setRole] = useState<UserRole>(UserRole.VISITOR);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  
+  // Inicializa favoritos a partir do localStorage para persistência
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('fc_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Salva favoritos no localStorage sempre que houver alterações
+  useEffect(() => {
+    localStorage.setItem('fc_favorites', JSON.stringify(favorites));
+  }, [favorites]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -74,12 +89,23 @@ const App: React.FC = () => {
   }, []);
 
   const toggleLanguage = () => setLanguage(prev => prev === 'pt' ? 'en' : 'pt');
-  const handleToggleFavorite = (id: string) => setFavorites(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]);
+  
+  const handleToggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(fid => fid !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
   const handleLogin = (userRole: UserRole) => { setRole(userRole); setIsLoggedIn(true); };
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.clear();
+    localStorage.removeItem('fc_session'); // Limpa sessão admin mockada se existir
+    // Nota: Não limpamos os favoritos ao sair para manter a experiência do utilizador
     setIsLoggedIn(false);
     setRole(UserRole.VISITOR);
     window.location.hash = '/';

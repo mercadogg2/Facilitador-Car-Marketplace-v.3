@@ -21,6 +21,9 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
   const [contactingCar, setContactingCar] = useState<Car | null>(null);
   const [relatedCars, setRelatedCars] = useState<Car[]>([]);
   
+  // Novo estado para garantir link correto do stand
+  const [verifiedStandSlug, setVerifiedStandSlug] = useState<string | null>(null);
+  
   const [activeImage, setActiveImage] = useState(0);
   
   const t = TRANSLATIONS[lang].detail;
@@ -44,7 +47,21 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
           setCar(data);
           setActiveImage(0);
 
-          // Tenta incrementar via RPC, se falhar usa update normal (Fallback seguro)
+          // BUSCA DE SEGURANÇA: Buscar perfil do stand atualizado pelo ID para garantir link funcional
+          if (data.user_id) {
+             const { data: profile } = await supabase
+               .from('profiles')
+               .select('slug, stand_name')
+               .eq('id', data.user_id)
+               .maybeSingle();
+             
+             if (profile) {
+               // Prioriza slug definido no perfil, senão gera a partir do nome real atualizado
+               setVerifiedStandSlug(profile.slug || (profile.stand_name ? slugify(profile.stand_name) : null));
+             }
+          }
+
+          // Tenta incrementar views
           try {
             const { error: rpcError } = await supabase.rpc('increment_car_views', { car_id: id });
             if (rpcError) {
@@ -102,8 +119,10 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
 
   const isFavorite = favorites.includes(car.id);
   const gallery = car.images && car.images.length > 0 ? car.images : [car.image];
-  // FIX: Usar sempre slug gerado pelo nome para garantir link correto mesmo se BD tiver slug antigo
-  const standSlug = car.stand_name ? slugify(car.stand_name) : '';
+  
+  // LÓGICA CORRIGIDA: Usa o slug verificado se disponível, caso contrário usa fallback do nome na viatura
+  const standSlug = verifiedStandSlug || (car.stand_name ? slugify(car.stand_name) : '');
+  const standLink = standSlug ? `/stands/${standSlug}` : '#';
 
   return (
     <div className="bg-white min-h-screen">
@@ -226,7 +245,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                 </p>
               </div>
 
-              <Link to={`/stands/${standSlug}`} className="bg-gray-900 p-8 rounded-[40px] shadow-2xl block hover:bg-black transition-all group overflow-hidden relative">
+              <Link to={standLink} className="bg-gray-900 p-8 rounded-[40px] shadow-2xl block hover:bg-black transition-all group overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-125 transition-transform"></div>
                 <div className="relative z-10 flex items-center gap-6">
                   <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg">

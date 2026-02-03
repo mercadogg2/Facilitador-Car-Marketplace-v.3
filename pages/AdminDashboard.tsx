@@ -61,9 +61,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [adSearch, setAdSearch] = useState('');
   const [standSearch, setStandSearch] = useState('');
 
-  const sqlRepairScript = `ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
+  const sqlRepairScript = `
+-- 1. Colunas essenciais
+ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0;
+
+-- 2. Extensão para criptografia (Necessária para mudar senhas)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 3. Função segura para Admin resetar senha (RPC)
+CREATE OR REPLACE FUNCTION public.admin_reset_password(target_user_id UUID, new_password TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Verifica se quem chama é admin (Segurança)
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND (role = 'admin' OR email = 'admin@facilitadorcar.pt')
+  ) THEN
+    RAISE EXCEPTION 'Acesso Negado: Apenas administradores podem resetar senhas.';
+  END IF;
+
+  -- Atualiza a senha na tabela de auth
+  UPDATE auth.users
+  SET encrypted_password = crypt(new_password, gen_salt('bf')),
+      updated_at = now()
+  WHERE id = target_user_id;
+END;
+$$;
+
 NOTIFY pgrst, 'reload schema';`;
 
   const fetchPlatformData = async () => {
@@ -102,6 +131,34 @@ NOTIFY pgrst, 'reload schema';`;
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } catch (err: any) {
       alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleForcePasswordReset = async (userId: string, userName: string) => {
+    const newPassword = prompt(`Introduza a nova senha para "${userName}":`);
+    if (!newPassword || newPassword.trim() === "") return;
+    if (newPassword.length < 6) {
+      alert("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      const { error } = await supabase.rpc('admin_reset_password', { 
+        target_user_id: userId, 
+        new_password: newPassword 
+      });
+
+      if (error) throw error;
+      alert(`Senha alterada com sucesso para: ${newPassword}\nPor favor, informe o utilizador.`);
+    } catch (err: any) {
+      if (err.message?.includes('function public.admin_reset_password does not exist')) {
+        alert("⚠️ Função não encontrada!\nPor favor, vá à aba 'Reparação' e execute o script SQL atualizado.");
+      } else {
+        alert("Erro ao alterar senha: " + err.message);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -389,9 +446,13 @@ NOTIFY pgrst, 'reload schema';`;
                              {user.status}
                            </span>
                         </td>
-                        <td className="px-8 py-6 text-right space-x-2">
-                           <button onClick={() => handleUpdateUserStatus(user.id, 'approved')} className="w-10 h-10 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all"><i className="fas fa-check"></i></button>
-                           <button onClick={() => handleUpdateUserStatus(user.id, 'rejected')} className="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-times"></i></button>
+                        <td className="px-8 py-6 text-right">
+                           <div className="flex items-center justify-end gap-2">
+                             <button onClick={() => handleForcePasswordReset(user.id, user.stand_name || user.full_name)} title="Resetar Senha" className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all"><i className="fas fa-key"></i></button>
+                             <div className="w-px h-6 bg-slate-200 mx-2"></div>
+                             <button onClick={() => handleUpdateUserStatus(user.id, 'approved')} title="Aprovar" className="w-10 h-10 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all"><i className="fas fa-check"></i></button>
+                             <button onClick={() => handleUpdateUserStatus(user.id, 'rejected')} title="Rejeitar" className="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><i className="fas fa-times"></i></button>
+                           </div>
                         </td>
                       </tr>
                     ))}

@@ -30,39 +30,44 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
       window.scrollTo(0, 0);
       
       try {
-        // Tenta buscar pelo slug amigável
-        const { data: profileData, error: profileError } = await supabase
+        let targetProfile: UserProfile | null = null;
+
+        // 1. Tenta buscar pelo slug exato
+        const { data: slugData } = await supabase
           .from('profiles')
           .select('*')
           .eq('slug', slug)
-          .single();
+          .maybeSingle();
         
-        let targetProfile = profileData;
-
-        if (profileError || !targetProfile) {
-          // Fallback 1: Buscar por nome exato (para stands como "bbb")
+        if (slugData) {
+          targetProfile = slugData;
+        } else {
+          // 2. Fallback: Buscar por nome exato (case insensitive)
+          // Usamos limit(1) para evitar erros caso existam duplicatas
           const { data: nameData } = await supabase
             .from('profiles')
             .select('*')
             .ilike('stand_name', slug)
-            .single();
+            .limit(1);
             
-          if (nameData) {
-            targetProfile = nameData;
+          if (nameData && nameData.length > 0) {
+            targetProfile = nameData[0];
           } else {
-             // Fallback 2: buscar pelo nome com espaços (para "stand-auto" -> "stand auto")
-            const { data: fallbackData } = await supabase
+             // 3. Fallback: buscar pelo nome com espaços
+            const { data: fuzzyData } = await supabase
               .from('profiles')
               .select('*')
               .ilike('stand_name', slug.replace(/-/g, ' '))
-              .single();
-            targetProfile = fallbackData;
+              .limit(1);
+            
+            if (fuzzyData && fuzzyData.length > 0) {
+              targetProfile = fuzzyData[0];
+            }
           }
         }
 
         if (targetProfile) {
           setStandProfile(targetProfile);
-          // Passamos o ID e o Nome para buscar os carros
           await fetchCars(targetProfile.id, targetProfile.stand_name || '');
         }
       } catch (err) {
@@ -72,10 +77,9 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
       }
     };
 
-    // Função de busca híbrida robusta
     const fetchCars = async (userId: string, standName: string) => {
       try {
-        // 1. Tenta buscar pelo ID do Utilizador (Mais seguro e resistente a mudanças de nome)
+        // Busca prioritária por ID
         const { data: carsById } = await supabase
           .from('cars')
           .select('*')
@@ -87,8 +91,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
           return;
         }
 
-        // 2. Fallback: Se não encontrou por ID (carros antigos), busca pelo Nome
-        console.warn("Buscando por nome (fallback legado)...");
+        // Fallback por nome
         const { data: carsByName } = await supabase
           .from('cars')
           .select('*')
@@ -111,6 +114,7 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
       <div className="w-20 h-20 bg-gray-100 text-gray-300 rounded-full flex items-center justify-center mb-6 text-3xl"><i className="fas fa-store-slash"></i></div>
       <h2 className="text-2xl font-black text-gray-900 mb-2">Stand não encontrado</h2>
+      <p className="text-gray-500 mb-8 max-w-md mx-auto">Não foi possível localizar este parceiro. O link pode estar desatualizado ou o stand foi removido.</p>
       <Link to="/stands" className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">Ver todos os Stands</Link>
     </div>
   );
