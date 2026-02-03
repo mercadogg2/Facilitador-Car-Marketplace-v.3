@@ -225,7 +225,7 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
                 </p>
               </div>
 
-              <Link to={`/${standSlug}`} className="bg-gray-900 p-8 rounded-[40px] shadow-2xl block hover:bg-black transition-all group overflow-hidden relative">
+              <Link to={`/stands/${standSlug}`} className="bg-gray-900 p-8 rounded-[40px] shadow-2xl block hover:bg-black transition-all group overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-125 transition-transform"></div>
                 <div className="relative z-10 flex items-center gap-6">
                   <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg">
