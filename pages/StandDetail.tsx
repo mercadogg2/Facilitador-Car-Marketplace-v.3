@@ -40,13 +40,24 @@ const StandDetail: React.FC<StandDetailProps> = ({ lang, onToggleFavorite, favor
         let targetProfile = profileData;
 
         if (profileError || !targetProfile) {
-          // Fallback: buscar pelo nome formatado (caso antigo)
-          const { data: fallbackData } = await supabase
+          // Fallback 1: Buscar por nome exato (para stands como "bbb")
+          const { data: nameData } = await supabase
             .from('profiles')
             .select('*')
-            .ilike('stand_name', slug.replace(/-/g, ' '))
+            .ilike('stand_name', slug)
             .single();
-          targetProfile = fallbackData;
+            
+          if (nameData) {
+            targetProfile = nameData;
+          } else {
+             // Fallback 2: buscar pelo nome com espaços (para "stand-auto" -> "stand auto")
+            const { data: fallbackData } = await supabase
+              .from('profiles')
+              .select('*')
+              .ilike('stand_name', slug.replace(/-/g, ' '))
+              .single();
+            targetProfile = fallbackData;
+          }
         }
 
         if (targetProfile) {

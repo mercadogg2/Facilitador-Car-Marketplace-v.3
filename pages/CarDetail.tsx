@@ -102,7 +102,8 @@ const CarDetail: React.FC<CarDetailProps> = ({ lang, onToggleFavorite, favorites
 
   const isFavorite = favorites.includes(car.id);
   const gallery = car.images && car.images.length > 0 ? car.images : [car.image];
-  const standSlug = car.stand_slug || (car.stand_name ? slugify(car.stand_name) : '');
+  // FIX: Usar sempre slug gerado pelo nome para garantir link correto mesmo se BD tiver slug antigo
+  const standSlug = car.stand_name ? slugify(car.stand_name) : '';
 
   return (
     <div className="bg-white min-h-screen">
