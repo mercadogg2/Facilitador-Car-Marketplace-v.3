@@ -39,13 +39,11 @@ const Auth: React.FC<AuthProps> = ({ lang, mode: initialMode, onLogin }) => {
   });
 
   const handleWhatsAppRecovery = () => {
-    const emailPart = formData.email ? ` associada ao email: ${formData.email}` : '';
-    const message = lang === 'pt' 
-      ? `Olá Suporte Facilitador Car, perdi o acesso à minha conta${emailPart}. Gostaria de solicitar a recuperação manual da minha senha.` 
-      : `Hello Facilitador Car Support, I lost access to my account${emailPart}. I would like to request a manual password reset.`;
-    
-    // Número de suporte definido no sistema (Ex: 351910000000)
-    window.open(`https://wa.me/351910000000?text=${encodeURIComponent(message)}`, '_blank');
+    // Abre o widget de suporte e pré-seleciona a opção de recuperação
+    const event = new CustomEvent('open-support-modal', {
+      detail: { subject: 'Recuperação de Conta/Senha' }
+    });
+    window.dispatchEvent(event);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
