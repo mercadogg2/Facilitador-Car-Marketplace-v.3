@@ -62,17 +62,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ lang, role }) => {
   const [standSearch, setStandSearch] = useState('');
 
   const sqlRepairScript = `
--- 1. Colunas essenciais
+-- 1. ESTRUTURA BÁSICA & EXTENSÕES
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 2. TABELA BLOG POSTS (Garante que existe)
+CREATE TABLE IF NOT EXISTS public.blog_posts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  excerpt TEXT,
+  content TEXT,
+  author TEXT,
+  date DATE,
+  image TEXT,
+  reading_time TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 3. COLUNAS ESSENCIAIS EM OUTRAS TABELAS
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS reference_code TEXT;
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 ALTER TABLE public.cars ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0;
 
--- 2. Extensão para criptografia (Necessária para mudar senhas)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- 4. POLÍTICAS DE SEGURANÇA (RLS) PARA BLOG
+ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
 
--- 3. Função segura para Admin resetar senha (RPC) - VERSÃO ATUALIZADA
--- Remove versões anteriores para evitar conflitos
+-- Permitir Leitura Pública
+DROP POLICY IF EXISTS "Public Read Blog" ON public.blog_posts;
+CREATE POLICY "Public Read Blog" ON public.blog_posts FOR SELECT USING (true);
+
+-- Permitir Escrita (Insert/Update/Delete) para Admins
+DROP POLICY IF EXISTS "Admin Write Blog" ON public.blog_posts;
+CREATE POLICY "Admin Write Blog" ON public.blog_posts FOR ALL USING (
+  (auth.role() = 'authenticated') AND (
+     auth.jwt() ->> 'email' = 'admin@facilitadorcar.pt' 
+     OR 
+     EXISTS (
+       SELECT 1 FROM public.profiles 
+       WHERE id = auth.uid() AND role = 'admin'
+     )
+  )
+);
+
+-- 5. FUNÇÃO DE RESET DE SENHA (RPC)
 DROP FUNCTION IF EXISTS public.admin_reset_password(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.admin_reset_password(UUID, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.admin_reset_password(target_user_id UUID, new_password TEXT, secret_key TEXT DEFAULT '')
 RETURNS VOID
@@ -80,9 +113,6 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Verifica permissão: 
-  -- 1. Admin Autenticado no Supabase
-  -- 2. OU Chave Mestra (para Admin Hardcoded/Bypass)
   IF NOT (
     (auth.uid() IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.profiles
@@ -94,7 +124,6 @@ BEGIN
     RAISE EXCEPTION 'Acesso Negado: Apenas administradores podem resetar senhas.';
   END IF;
 
-  -- Atualiza a senha na tabela de auth
   UPDATE auth.users
   SET encrypted_password = crypt(new_password, gen_salt('bf')),
       updated_at = now()
@@ -155,7 +184,6 @@ NOTIFY pgrst, 'reload schema';`;
 
     setRefreshing(true);
     try {
-      // Enviamos a secret_key para garantir que o Admin Bypass consiga alterar
       const { error } = await supabase.rpc('admin_reset_password', { 
         target_user_id: userId, 
         new_password: newPassword,
@@ -165,10 +193,9 @@ NOTIFY pgrst, 'reload schema';`;
       if (error) throw error;
       alert(`Senha alterada com sucesso para: ${newPassword}\nPor favor, informe o utilizador.`);
     } catch (err: any) {
-      // Verifica erros comuns para dar feedback melhor
       const msg = err.message || '';
       if (msg.includes('function public.admin_reset_password') || msg.includes('Acesso Negado')) {
-        alert("⚠️ AÇÃO NECESSÁRIA:\n\nO banco de dados precisa ser atualizado para permitir esta ação.\n\n1. Vá à aba 'Reparação' (ícone raio/ferramenta);\n2. Copie o Script SQL;\n3. Execute-o no SQL Editor do Supabase.");
+        alert("⚠️ AÇÃO NECESSÁRIA:\n\nO banco de dados precisa ser atualizado.\n\n1. Vá à aba 'Reparação' (ícone raio/ferramenta);\n2. Copie o Script SQL;\n3. Execute-o no SQL Editor do Supabase.");
       } else {
         alert("Erro ao alterar senha: " + msg);
       }
@@ -225,7 +252,12 @@ NOTIFY pgrst, 'reload schema';`;
       }
       setIsBlogModalOpen(false);
     } catch (err: any) {
-      alert("Erro ao salvar artigo: " + err.message);
+      const msg = err.message || '';
+      if (msg.includes('row-level security policy') || msg.includes('permission denied')) {
+        alert("⚠️ ERRO DE PERMISSÃO (RLS):\n\nO banco de dados bloqueou esta ação porque faltam as políticas de segurança.\n\nSOLUÇÃO:\n1. Vá à aba 'Reparação' (ícone ferramenta);\n2. Copie o novo Script SQL;\n3. Execute-o no Supabase.");
+      } else {
+        alert("Erro ao salvar artigo: " + msg);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -235,10 +267,16 @@ NOTIFY pgrst, 'reload schema';`;
     if (!window.confirm("Apagar este artigo definitivamente?")) return;
     setRefreshing(true);
     try {
-      await supabase.from('blog_posts').delete().eq('id', id);
+      const { error } = await supabase.from('blog_posts').delete().eq('id', id);
+      if (error) throw error;
       setPosts(prev => prev.filter(p => p.id !== id));
     } catch (err: any) {
-      alert("Erro ao apagar: " + err.message);
+      const msg = err.message || '';
+      if (msg.includes('row-level security policy')) {
+         alert("⚠️ ERRO DE PERMISSÃO:\nVá à aba 'Reparação' e execute o script SQL atualizado para corrigir as permissões do Blog.");
+      } else {
+         alert("Erro ao apagar: " + msg);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -375,9 +413,7 @@ NOTIFY pgrst, 'reload schema';`;
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {leads.map(lead => {
-                      // Verifica se o email do lead corresponde a um usuário registado
                       const matchedUser = users.find(u => u.email?.toLowerCase() === lead.customer_email?.toLowerCase());
-
                       return (
                       <tr key={lead.id} className="hover:bg-slate-50/50">
                         <td className="px-8 py-6">
@@ -453,7 +489,6 @@ NOTIFY pgrst, 'reload schema';`;
                            <div className="flex flex-col">
                                <span className="font-black text-slate-900 text-sm">{user.stand_name || 'Particular'}</span>
                                <span className="text-xs text-slate-500 font-medium mb-2">{user.full_name}</span>
-                               
                                <div className="flex flex-col gap-1.5 mt-1">
                                    <div className="flex items-center gap-2 bg-slate-50 w-fit px-2 py-1 rounded-md border border-slate-100">
                                        <i className="fas fa-envelope text-slate-400 text-[10px]"></i>
@@ -586,7 +621,7 @@ NOTIFY pgrst, 'reload schema';`;
                     <div className="flex justify-between items-center mb-6">
                         <h4 className="text-xl font-black">Script SQL de Reparação</h4>
                         <button 
-                           onClick={() => { navigator.clipboard.writeText(sqlRepairScript); alert("Copiado!"); }}
+                           onClick={() => { navigator.clipboard.writeText(sqlRepairScript); alert("Copiado! Agora cole no SQL Editor do Supabase."); }}
                            className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase"
                         >
                            Copiar Script
