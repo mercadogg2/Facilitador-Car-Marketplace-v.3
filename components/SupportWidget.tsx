@@ -101,17 +101,10 @@ const SupportWidget: React.FC<SupportWidgetProps> = ({ lang }) => {
         <div className="fixed inset-0 z-[2001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-[35px] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
             <div className="bg-blue-600 p-6 text-white relative">
-              <div className="relative z-10 pr-10">
+              <div className="relative z-10">
                 <h2 className="text-2xl font-black">{t.title}</h2>
                 <p className="text-blue-100 text-xs font-medium mt-1">{t.subtitle}</p>
               </div>
-              <button 
-                onClick={closeSupport} 
-                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/40 transition-all text-white"
-                title="Fechar"
-              >
-                <i className="fas fa-times text-sm"></i>
-              </button>
             </div>
 
             <div className="p-6">

@@ -56,10 +56,20 @@ const Footer: React.FC<FooterProps> = ({ lang }) => {
                 />
               </a>
               <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                <a 
+                  href="https://www.facebook.com/facilitadorcarpt" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                >
                   <i className="fab fa-facebook-f"></i>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-pink-600 transition-colors">
+                <a 
+                  href="https://www.instagram.com/facilitadorcarpt?igsh=MW1keTM4d2xsbDRuaQ%3D%3D&utm_source=qr" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-pink-600 transition-colors"
+                >
                   <i className="fab fa-instagram"></i>
                 </a>
               </div>
